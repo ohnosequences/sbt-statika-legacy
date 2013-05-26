@@ -91,6 +91,7 @@ object SbtStatika extends Plugin {
         , s3credentialsFile
         )
       }
+    , buildInfoPackage <<= name { "buildinfo." + _.split("\\W").map(_.capitalize).mkString }
     , buildInfoPrefix := "object MetaData {"
     , buildInfoObjectFormat := "implicit object %s extends ohnosequences.statika.General.BundleMetaData"
     , buildInfoObject := "ImplicitData"
