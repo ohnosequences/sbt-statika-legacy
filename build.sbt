@@ -36,6 +36,6 @@ addSbtPlugin("com.github.gseitz" % "sbt-release" % "0.6")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-start-script" % "0.8.0")
 
-addSbtPlugin("ohnosequences" % "sbt-buildinfo" % "0.3.0")
+addSbtPlugin("ohnosequences" % "sbt-buildinfo" % "0.3.1")
 
 addSbtPlugin("ohnosequences" % "sbt-s3-resolver" % "0.3.0")

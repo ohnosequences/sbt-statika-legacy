@@ -9,10 +9,13 @@ import SbtS3Resolver._
 object SbtStatika extends Plugin {
 
   def ivyResolver(name: String, addr: String): Resolver =
-    Resolver.url(name, url(addr))(Resolver.ivyStylePatterns)
+    Resolver.url(name, url(addr))(Patterns("[organisation]/[module]/[revision]/[type]s/[artifact](-[classifier]).[ext]"))
 
   lazy val isPrivate = SettingKey[Boolean]("is-private", 
     "If true, publish to private S3 bucket, else to public")
+
+  lazy val statikaVersion = SettingKey[String]("statika-version",
+    "statika library version")
 
   override def settings = 
     startScriptForClassesSettings ++
@@ -67,21 +70,30 @@ object SbtStatika extends Plugin {
 
     // dependencies
 
-    , libraryDependencies ++= Seq ( 
-        "com.chuusai" %% "shapeless" % "1.2.3"
-      , "ohnosequences" %% "statika" % "0.9.0"
-      )
+    , scalaVersion := "2.10.0"
+    , statikaVersion := "0.10.0"
+    , libraryDependencies <++= statikaVersion { sv =>
+        Seq (
+          "com.chuusai" %% "shapeless" % "1.2.3"
+        , "ohnosequences" %% "statika" % sv
+        , "ohnosequences" % "gener8bundle_2.10.0" % "0.9.0" % "test"
+        , "org.scalatest" %% "scalatest" % "1.9.1" % "test"
+        )
+      }
 
     // sbt-buildinfo plugin
 
     , sourceGenerators in Compile <+= buildInfo
-    , buildInfoKeys <<= name { name => 
-        Seq[BuildInfoKey]("artifact" -> name, version)
+    , buildInfoKeys <<= name { name =>
+        Seq[BuildInfoKey](
+          "artifact" -> name
+        , version
+        , s3credentialsFile
+        )
       }
-    , buildInfoPrefix := """object MetaInfo { 
-        import ohnosequences.statika.General.BundleMetaInfo
-      """
-    , buildInfoObject := "implicit object InfoImplicit extends BundleMetaInfo"
+    , buildInfoPrefix := "object MetaData {"
+    , buildInfoObjectFormat := "implicit object %s extends ohnosequences.statika.General.BundleMetaData"
+    , buildInfoObject := "ImplicitData"
     , buildInfoSuffix := "}"
     ) 
 }
