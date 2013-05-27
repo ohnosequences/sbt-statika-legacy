@@ -11,11 +11,20 @@ object SbtStatika extends Plugin {
   def ivyResolver(name: String, addr: String): Resolver =
     Resolver.url(name, url(addr))(Patterns("[organisation]/[module]/[revision]/[type]s/[artifact](-[classifier]).[ext]"))
 
+  lazy val bundlePackage = SettingKey[String]("bundle-object",
+    "Package name for the bundle")
+
+  lazy val bundleObject = SettingKey[String]("bundle-package",
+    "Supposed name of the bundle object")
+
   lazy val isPrivate = SettingKey[Boolean]("is-private", 
     "If true, publish to private S3 bucket, else to public")
 
   lazy val statikaVersion = SettingKey[String]("statika-version",
     "statika library version")
+
+  lazy val genBuildInfo = SettingKey[Boolean]("gen-buildinfo",
+    "If false, no buildinfo settings will be used")
 
   override def settings = 
     startScriptForClassesSettings ++
@@ -68,10 +77,14 @@ object SbtStatika extends Plugin {
       , "-unchecked"
       )
 
-    // dependencies
+    // general settings
 
     , scalaVersion := "2.10.0"
-    , statikaVersion := "0.10.0"
+    , statikaVersion := "0.11.0"
+    , organization := "ohnosequences"
+
+    // dependencies
+
     , libraryDependencies <++= statikaVersion { sv =>
         Seq (
           "com.chuusai" %% "shapeless" % "1.2.3"
@@ -83,18 +96,25 @@ object SbtStatika extends Plugin {
 
     // sbt-buildinfo plugin
 
-    , sourceGenerators in Compile <+= buildInfo
+    , genBuildInfo := true
+    , sourceGenerators in Compile <++= (genBuildInfo, buildInfo) { (gen, bi)  =>  
+        if (gen) Seq(bi) else Seq() 
+      }
     , buildInfoKeys <<= name { name =>
         Seq[BuildInfoKey](
           "artifact" -> name
         , version
         , s3credentialsFile
+        , statikaVersion
+        , organization
         )
       }
-    , buildInfoPackage <<= name { "buildinfo." + _.split("\\W").map(_.capitalize).mkString }
+    , buildInfoPackage <<= bundlePackage
     , buildInfoPrefix := "object MetaData {"
-    , buildInfoObjectFormat := "implicit object %s extends ohnosequences.statika.General.BundleMetaData"
-    , buildInfoObject := "ImplicitData"
+    , buildInfoObjectFormat <<= bundleObject { 
+        "implicit object %s extends ohnosequences.statika.MetaData.MetaDataOf["+_+".type]"
+      }
+    , buildInfoObject <<= bundleObject { _+"MD" }
     , buildInfoSuffix := "}"
     ) 
 }
