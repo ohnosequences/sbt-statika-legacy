@@ -86,7 +86,7 @@ object SbtStatika extends Plugin {
     // general settings
 
     , scalaVersion := "2.10.0"
-    , statikaVersion := "0.11.0"
+    , statikaVersion := "0.11.1"
     , organization := "ohnosequences"
 
     // dependencies
