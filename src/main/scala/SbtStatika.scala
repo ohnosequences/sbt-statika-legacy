@@ -2,8 +2,14 @@ import sbt._
 import Keys._
 
 import com.typesafe.sbt.SbtStartScript._
+
 import sbtbuildinfo.Plugin._
-import sbtrelease.ReleasePlugin._
+
+import sbtrelease._
+import ReleaseStateTransformations._
+import ReleasePlugin._
+import ReleaseKeys._
+
 import SbtS3Resolver._
 
 object SbtStatika extends Plugin {
@@ -117,4 +123,21 @@ object SbtStatika extends Plugin {
     , buildInfoObject <<= bundleObject { _+"MD" }
     , buildInfoSuffix := "}"
     ) 
+
+    // sbt-release plugin
+
+    releaseProcess <<= thisProjectRef apply { ref =>
+      Seq[ReleaseStep](
+        checkSnapshotDependencies
+      , inquireVersions
+      , runTest
+      , setReleaseVersion
+      , commitReleaseVersion
+      , tagRelease
+      , publishArtifacts
+      , setNextVersion
+      , pushChanges
+      )
+    }
+
 }
