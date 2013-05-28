@@ -17,6 +17,9 @@ object SbtStatika extends Plugin {
   def ivyResolver(name: String, addr: String): Resolver =
     Resolver.url(name, url(addr))(Patterns("[organisation]/[module]/[revision]/[type]s/[artifact](-[classifier]).[ext]"))
 
+  lazy val bundleAmi = SettingKey[String]("bundle-ami",
+    "Name of AMI bundle object (namespace)")
+
   lazy val bundlePackage = SettingKey[String]("bundle-object",
     "Package name for the bundle")
 
@@ -103,6 +106,10 @@ object SbtStatika extends Plugin {
     // sbt-buildinfo plugin
 
     , genBuildInfo := true
+    , bundlePackage <<= (organization, bundleAmi) { (o,a) => 
+        o+".statika"+( if (a.isEmpty) "" else "."+a )
+      }
+
     , sourceGenerators in Compile <++= (genBuildInfo, buildInfo) { (gen, bi)  =>  
         if (gen) Seq(bi) else Seq() 
       }
