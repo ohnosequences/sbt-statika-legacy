@@ -24,12 +24,12 @@ resolvers ++= Seq (
 , Resolver.sonatypeRepo("releases")
 , Resolver.sonatypeRepo("snapshots")
 , "Era7 Releases"  at "http://releases.era7.com.s3.amazonaws.com"
-, "Era7 Snapshots"   at "http://snapshots.era7.com.s3.amazonaws.com"   
+, "Era7 Snapshots" at "http://snapshots.era7.com.s3.amazonaws.com"   
 )
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-start-script" % "0.8.0")
 
-addSbtPlugin("ohnosequences" % "sbt-buildinfo" % "0.3.1")
+addSbtPlugin("ohnosequences" % "sbt-buildinfo" % "0.3.2")
 
 addSbtPlugin("com.github.gseitz" % "sbt-release" % "0.7")
 
