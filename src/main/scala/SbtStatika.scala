@@ -14,9 +14,6 @@ import SbtS3Resolver._
 
 object SbtStatika extends Plugin {
 
-  def ivyResolver(name: String, addr: String): Resolver =
-    Resolver.url(name, url(addr))(Patterns("[organisation]/[module]/[revision]/[type]s/[artifact](-[classifier]).[ext]"))
-
   lazy val bundleAmi = SettingKey[String]("bundle-ami",
     "Name of AMI bundle object (namespace)")
 
@@ -50,30 +47,31 @@ object SbtStatika extends Plugin {
       , "Era7 Releases"  at "http://releases.era7.com.s3.amazonaws.com"
       , "Era7 Snapshots" at "http://snapshots.era7.com.s3.amazonaws.com"
         // ivy:
-      , ivyResolver("Era7 ivy snapshots", "http://snapshots.era7.com.s3.amazonaws.com")
-      , ivyResolver("Era7 ivy releases",  "http://releases.era7.com.s3.amazonaws.com")
-      , ivyResolver("Statika public snapshots", "http://snapshots.statika.ohnosequences.com.s3.amazonaws.com")
-      , ivyResolver("Statika public releases",  "http://releases.statika.ohnosequences.com.s3.amazonaws.com")
+      , Resolver.url("Era7 ivy snapshots", url("http://snapshots.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
+      , Resolver.url("Era7 ivy releases",  url("http://releases.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
+      , Resolver.url("Statika public snapshots", url("http://snapshots.statika.ohnosequences.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
+      , Resolver.url("Statika public releases",  url("http://releases.statika.ohnosequences.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
       )
 
     // private resolvers
 
-    , resolvers <++= s3resolver { s3 => Seq(
-          s3("Statika private snapshots", "s3://private.snapshots.statika.ohnosequences.com")
-        , s3("Statika private releases",  "s3://private.releases.statika.ohnosequences.com")
+    , resolvers <++= s3credentials { cs => Seq(
+          cs map s3resolver("Statika private snapshots", "s3://private.snapshots.statika.ohnosequences.com")
+        , cs map s3resolver("Statika private releases",  "s3://private.releases.statika.ohnosequences.com")
         ).flatten 
       }
 
     // publishing
 
-    , publishMavenStyle := false
     , isPrivate := true
-    , publishTo <<= (isSnapshot, s3resolver, isPrivate) { 
-                      (snapshot,   resolver,   priv) => 
+    , publishTo <<= (isSnapshot, s3credentials, isPrivate) { 
+                      (snapshot,   credentials,   priv) => 
         val privacy = if (priv) "private." else ""
         val prefix = if (snapshot) "snapshots" else "releases"
-        resolver( "Statika "+privacy+prefix+" S3 publishing bucket"
-                , "s3://"+privacy+prefix+".statika.ohnosequences.com")
+        credentials map s3resolver( 
+            "Statika "+privacy+prefix+" S3 publishing bucket"
+          , "s3://"+privacy+prefix+".statika.ohnosequences.com"
+          )
       }
 
     // scalac options
@@ -88,7 +86,7 @@ object SbtStatika extends Plugin {
 
     // general settings
 
-    , scalaVersion := "2.10.0"
+    , scalaVersion := "2.10.2"
     , statikaVersion := "0.11.1"
     , organization := "ohnosequences"
 
