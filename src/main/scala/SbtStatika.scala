@@ -14,13 +14,10 @@ import SbtS3Resolver._
 
 object SbtStatika extends Plugin {
 
-  lazy val bundleAmi = SettingKey[String]("bundle-ami",
-    "Name of AMI bundle object (namespace)")
-
-  lazy val bundlePackage = SettingKey[String]("bundle-object",
+  lazy val bundlePackage = SettingKey[String]("bundle-package",
     "Package name for the bundle")
 
-  lazy val bundleObject = SettingKey[String]("bundle-package",
+  lazy val bundleObject = SettingKey[String]("bundle-object",
     "Supposed name of the bundle object")
 
   lazy val isPrivate = SettingKey[Boolean]("is-private", 
@@ -28,9 +25,6 @@ object SbtStatika extends Plugin {
 
   lazy val statikaVersion = SettingKey[String]("statika-version",
     "statika library version")
-
-  lazy val genBuildInfo = SettingKey[Boolean]("gen-buildinfo",
-    "If false, no buildinfo settings will be used")
 
   override def settings = 
     startScriptForClassesSettings ++
@@ -46,11 +40,13 @@ object SbtStatika extends Plugin {
       , Resolver.sonatypeRepo("snapshots")
       , "Era7 Releases"  at "http://releases.era7.com.s3.amazonaws.com"
       , "Era7 Snapshots" at "http://snapshots.era7.com.s3.amazonaws.com"
+      , "Statika public snapshots" at "http://snapshots.statika.ohnosequences.com.s3.amazonaws.com"
+      , "Statika public releases" at "http://releases.statika.ohnosequences.com.s3.amazonaws.com"
         // ivy:
       , Resolver.url("Era7 ivy snapshots", url("http://snapshots.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
       , Resolver.url("Era7 ivy releases",  url("http://releases.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
-      , Resolver.url("Statika public snapshots", url("http://snapshots.statika.ohnosequences.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
-      , Resolver.url("Statika public releases",  url("http://releases.statika.ohnosequences.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
+      , Resolver.url("Statika ivy public snapshots", url("http://snapshots.statika.ohnosequences.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
+      , Resolver.url("Statika ivy public releases",  url("http://releases.statika.ohnosequences.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
       )
 
     // private resolvers
@@ -58,12 +54,13 @@ object SbtStatika extends Plugin {
     , resolvers <++= s3credentials { cs => Seq(
           cs map s3resolver("Statika private snapshots", "s3://private.snapshots.statika.ohnosequences.com")
         , cs map s3resolver("Statika private releases",  "s3://private.releases.statika.ohnosequences.com")
+        , cs map s3resolver("Statika ivy private snapshots", "s3://private.snapshots.statika.ohnosequences.com", Resolver.localBasePattern)
+        , cs map s3resolver("Statika ivy private releases",  "s3://private.releases.statika.ohnosequences.com", Resolver.localBasePattern)
         ).flatten 
       }
 
     // publishing
 
-    , isPrivate := true
     , publishTo <<= (isSnapshot, s3credentials, isPrivate) { 
                       (snapshot,   credentials,   priv) => 
         val privacy = if (priv) "private." else ""
@@ -86,42 +83,42 @@ object SbtStatika extends Plugin {
 
     // general settings
 
-    , scalaVersion := "2.10.2"
-    , statikaVersion := "0.11.1"
     , organization := "ohnosequences"
+    , scalaVersion := "2.10.2"
+    , statikaVersion := "0.12.0"
 
     // dependencies
 
     , libraryDependencies <++= statikaVersion { sv =>
         Seq (
-          "com.chuusai" %% "shapeless" % "1.2.3"
+          "com.chuusai" %% "shapeless" % "1.2.+"
         , "ohnosequences" %% "statika" % sv
-        , "ohnosequences" % "gener8bundle_2.10.0" % "0.9.0" % "test"
+        // , "ohnosequences" % "gener8bundle_2.10.0" % "0.12.+" % "test"
         , "org.scalatest" %% "scalatest" % "1.9.1" % "test"
         )
       }
 
     // sbt-buildinfo plugin
 
-    , genBuildInfo := true
-    , bundlePackage <<= (organization, bundleAmi) { (o,a) => 
-        o+".statika"+( if (a.isEmpty) "" else "."+a )
-      }
+    , bundleObject := ""
+    , bundlePackage <<= (organization){_+".statika"}
 
-    , sourceGenerators in Compile <++= (genBuildInfo, buildInfo) { (gen, bi)  =>  
-        if (gen) Seq(bi) else Seq() 
+    , sourceGenerators in Compile <++= (bundlePackage, bundleObject, buildInfo) { 
+          (bp, bo, bi)  =>  
+        if (bp.isEmpty || bo.isEmpty) Seq() else Seq(bi)
       }
     , buildInfoKeys <<= name { name =>
         Seq[BuildInfoKey](
-          "artifact" -> name
+          organization
+        , "artifact" -> name
         , version
         , s3credentialsFile
         , statikaVersion
-        , organization
+        , resolvers
         )
       }
     , buildInfoPackage <<= bundlePackage
-    , buildInfoPrefix := "object MetaData {"
+    , buildInfoPrefix := "object GeneratedMetaData {"
     , buildInfoObjectFormat <<= bundleObject { 
         "implicit object %s extends ohnosequences.statika.MetaData.MetaDataOf["+_+".type]"
       }
