@@ -115,6 +115,9 @@ object SbtStatika extends Plugin {
         , s3credentialsFile
         , statikaVersion
         , resolvers
+        , BuildInfoKey.map(bundleObject) { case (k, v) => 
+            "name" -> (v+""".getClass.getName.split("\\$").last""") 
+          }
         )
       }
     , buildInfoPackage <<= bundlePackage
