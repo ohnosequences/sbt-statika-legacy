@@ -107,7 +107,8 @@ object SbtStatika extends Plugin {
           (bp, bo, bi)  =>  
         if (bp.isEmpty || bo.isEmpty) Seq() else Seq(bi)
       }
-    , buildInfoKeys <<= name { name =>
+    , buildInfoKeys <<= (name, bundlePackage, bundleObject) { 
+        (name, pkg, obj) =>
         Seq[BuildInfoKey](
           organization
         , "artifact" -> name
@@ -115,9 +116,7 @@ object SbtStatika extends Plugin {
         , s3credentialsFile
         , statikaVersion
         , resolvers
-        , BuildInfoKey.map(bundleObject) { case (k, v) => 
-            "name" -> (v+""".getClass.getName.split("\\$").last""") 
-          }
+        , "name" -> (pkg+"."+obj)
         )
       }
     , buildInfoPackage <<= bundlePackage
