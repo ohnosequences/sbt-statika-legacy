@@ -26,6 +26,27 @@ object SbtStatika extends Plugin {
   lazy val statikaVersion = SettingKey[String]("statika-version",
     "statika library version")
 
+  lazy val statikaResolvers = SettingKey[Seq[S3Resolver]]("statika-resolvers",
+    "resolvers for statika dependencies")
+
+  case class s3(url: String) {
+    def apply(url: String) = 
+      if(url.startsWith("s3://")) "http://"+ url.stripPrefix("s3://") +".s3.amazonaws.com"
+      else url
+  }
+  case class S3Resolver(name: String, bucket: s3) {
+    override def toString = """ "%s" at "%s" """ format (name, bucket)
+  }
+
+  // convertion from string for nice syntax
+  class StringAtS3(name: String) {
+    def at(bucket: s3) = S3Resolver(name, bucket)
+  }
+  implicit def StringAtS3(s: String) = new StringAtS3(s)
+  
+  // convertion to Resolver
+  implicit def s3ToMvn(s3: S3Resolver): Resolver = s3.name at s3.bucket 
+
   override def settings = 
     startScriptForClassesSettings ++
     releaseSettings ++
@@ -33,15 +54,20 @@ object SbtStatika extends Plugin {
     Seq(
     // resolvers
 
-      resolvers ++= Seq ( 
+      statikaResolvers := Seq(
+        "Era7 Releases"  at s3("s3://releases.era7.com")
+      , "Era7 Snapshots" at s3("s3://snapshots.era7.com")
+      , "Statika public snapshots" at s3("s3://snapshots.statika.ohnosequences.com")
+      , "Statika public releases" at s3("s3://releases.statika.ohnosequences.com")
+      )
+
+    , resolvers <++= statikaResolvers { _ map s3ToMvn }
+
+    , resolvers ++= Seq ( 
         // maven:
         Resolver.typesafeRepo("releases")
       , Resolver.sonatypeRepo("releases")
       , Resolver.sonatypeRepo("snapshots")
-      , "Era7 Releases"  at "http://releases.era7.com.s3.amazonaws.com"
-      , "Era7 Snapshots" at "http://snapshots.era7.com.s3.amazonaws.com"
-      , "Statika public snapshots" at "http://snapshots.statika.ohnosequences.com.s3.amazonaws.com"
-      , "Statika public releases" at "http://releases.statika.ohnosequences.com.s3.amazonaws.com"
         // ivy:
       , Resolver.url("Era7 ivy snapshots", url("http://snapshots.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
       , Resolver.url("Era7 ivy releases",  url("http://releases.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
@@ -107,16 +133,16 @@ object SbtStatika extends Plugin {
           (bp, bo, bi)  =>  
         if (bp.isEmpty || bo.isEmpty) Seq() else Seq(bi)
       }
-    , buildInfoKeys <<= (name, bundlePackage, bundleObject) { 
-        (name, pkg, obj) =>
+    , buildInfoKeys <<= (name, bundlePackage, bundleObject, statikaResolvers) { 
+        (name, pkg, obj, sResolvers) =>
         Seq[BuildInfoKey](
           organization
         , "artifact" -> name
         , version
         , s3credentialsFile
         , statikaVersion
-        , resolvers
         , "name" -> (pkg+"."+obj)
+        , "resolvers" -> sResolvers
         )
       }
     , buildInfoPackage <<= bundlePackage
