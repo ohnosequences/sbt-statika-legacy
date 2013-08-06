@@ -29,23 +29,26 @@ object SbtStatika extends Plugin {
   lazy val statikaResolvers = SettingKey[Seq[S3Resolver]]("statika-resolvers",
     "resolvers for statika dependencies")
 
-  case class s3(url: String) {
-    def apply(url: String) = 
-      if(url.startsWith("s3://")) "http://"+ url.stripPrefix("s3://") +".s3.amazonaws.com"
-      else url
+  case class S3Bucket(url: String) {
+    override def toString = url
   }
-  case class S3Resolver(name: String, bucket: s3) {
-    override def toString = """ "%s" at "%s" """ format (name, bucket)
+  def s3(url: String): S3Bucket = 
+    if(url.startsWith("s3://")) 
+      S3Bucket("http://"+ url.stripPrefix("s3://") +".s3.amazonaws.com")
+    else S3Bucket(url)
+
+  case class S3Resolver(name: String, bucket: S3Bucket) {
+    override def toString = """\"%s\" at \"%s\" """ format (name, bucket)
   }
 
   // convertion from string for nice syntax
   class StringAtS3(name: String) {
-    def at(bucket: s3) = S3Resolver(name, bucket)
+    def at(bucket: S3Bucket) = S3Resolver(name, bucket)
   }
   implicit def StringAtS3(s: String) = new StringAtS3(s)
   
   // convertion to Resolver
-  implicit def s3ToMvn(s3: S3Resolver): Resolver = s3.name at s3.bucket 
+  implicit def s3ToMvn(s3: S3Resolver): Resolver = s3.name at s3.bucket.toString
 
   override def settings = 
     startScriptForClassesSettings ++
@@ -69,10 +72,10 @@ object SbtStatika extends Plugin {
       , Resolver.sonatypeRepo("releases")
       , Resolver.sonatypeRepo("snapshots")
         // ivy:
-      , Resolver.url("Era7 ivy snapshots", url("http://snapshots.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
-      , Resolver.url("Era7 ivy releases",  url("http://releases.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
-      , Resolver.url("Statika ivy public snapshots", url("http://snapshots.statika.ohnosequences.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
-      , Resolver.url("Statika ivy public releases",  url("http://releases.statika.ohnosequences.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
+      // , Resolver.url("Era7 ivy snapshots", url("http://snapshots.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
+      // , Resolver.url("Era7 ivy releases",  url("http://releases.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
+      // , Resolver.url("Statika ivy public snapshots", url("http://snapshots.statika.ohnosequences.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
+      // , Resolver.url("Statika ivy public releases",  url("http://releases.statika.ohnosequences.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
       )
 
     // private resolvers
@@ -80,8 +83,8 @@ object SbtStatika extends Plugin {
     , resolvers <++= s3credentials { cs => Seq(
           cs map s3resolver("Statika private snapshots", "s3://private.snapshots.statika.ohnosequences.com")
         , cs map s3resolver("Statika private releases",  "s3://private.releases.statika.ohnosequences.com")
-        , cs map s3resolver("Statika ivy private snapshots", "s3://private.snapshots.statika.ohnosequences.com", Resolver.localBasePattern)
-        , cs map s3resolver("Statika ivy private releases",  "s3://private.releases.statika.ohnosequences.com", Resolver.localBasePattern)
+        // , cs map s3resolver("Statika ivy private snapshots", "s3://private.snapshots.statika.ohnosequences.com", Resolver.localBasePattern)
+        // , cs map s3resolver("Statika ivy private releases",  "s3://private.releases.statika.ohnosequences.com", Resolver.localBasePattern)
         ).flatten 
       }
 
@@ -139,19 +142,19 @@ object SbtStatika extends Plugin {
           organization
         , "artifact" -> name
         , version
-        , s3credentialsFile
-        , statikaVersion
+        // , s3credentialsFile
+        // , statikaVersion
         , "name" -> (pkg+"."+obj)
         , "resolvers" -> sResolvers
         )
       }
-    , buildInfoPackage <<= bundlePackage
-    , buildInfoPrefix := "object GeneratedMetaData {"
-    , buildInfoObjectFormat <<= bundleObject { 
-        "implicit object %s extends ohnosequences.statika.MetaData.MetaDataOf["+_+".type]"
+    , buildInfoPackage <<= bundlePackage { _+".meta"}
+    // , buildInfoPrefix := "object  {"
+    , buildInfoObjectFormat <<= (bundlePackage, bundleObject) { (bp, bo) =>
+        "object %s extends ohnosequences.statika.MetaData.MetaDataOf["+bp+"."+bo+".type]"
       }
-    , buildInfoObject <<= bundleObject { _+"MD" }
-    , buildInfoSuffix := "}"
+    , buildInfoObject <<= bundleObject
+    // , buildInfoSuffix := "}"
     ) 
 
     // sbt-release plugin
