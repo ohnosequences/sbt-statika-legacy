@@ -114,7 +114,7 @@ object SbtStatika extends Plugin {
 
     , organization := "ohnosequences"
     , scalaVersion := "2.10.2"
-    , statikaVersion := "0.12.0-SNAPSHOT"
+    , statikaVersion := "0.12.+"
 
     // dependencies
 
@@ -122,7 +122,7 @@ object SbtStatika extends Plugin {
         Seq (
           "com.chuusai" %% "shapeless" % "1.2.+"
         , "ohnosequences" %% "statika" % sv
-        , "org.scalatest" %% "scalatest" % "1.9.1" % "test"
+        , "org.scalatest" %% "scalatest" % "1.9.+" % "test"
         )
       }
 
