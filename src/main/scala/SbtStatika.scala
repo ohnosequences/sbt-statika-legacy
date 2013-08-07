@@ -42,7 +42,7 @@ object SbtStatika extends Plugin {
   def s3(url: String): S3Bucket = S3Bucket(url)
 
   case class S3Resolver(name: String, bucket: S3Bucket) {
-    override def toString = """\"%s\" at \"%s\" """ format (name, bucket)
+    override def toString = """\"%s\" at \"%s\" """ format (name, bucket.toHttp)
   }
 
   // convertion from string for nice syntax
@@ -144,7 +144,7 @@ object SbtStatika extends Plugin {
         , statikaVersion
         , "name" -> (pkg+"."+obj)
         , "resolvers" -> sResolvers
-        , "privateResolvers" -> (sPrivResolvers map (_.bucket.toString))
+        , "privateResolvers" -> (sPrivResolvers map ("\\\""+_.bucket.toString+"\\\""))
         )
       }
     , buildInfoPackage <<= bundlePackage { _+".meta"}
