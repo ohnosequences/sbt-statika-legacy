@@ -144,7 +144,7 @@ object SbtStatika extends Plugin {
         , statikaVersion
         , "name" -> (pkg+"."+obj)
         , "resolvers" -> sResolvers
-        , "privateResolvers" -> sPrivResolvers
+        , "privateResolvers" -> (sPrivResolvers map (_.bucket.toString))
         )
       }
     , buildInfoPackage <<= bundlePackage { _+".meta"}
