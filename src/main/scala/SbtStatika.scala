@@ -114,15 +114,15 @@ object SbtStatika extends Plugin {
 
     , organization := "ohnosequences"
     , scalaVersion := "2.10.2"
-    , statikaVersion := "0.12.+"
+    , statikaVersion := "0.12.0"
 
     // dependencies
 
     , libraryDependencies <++= statikaVersion { sv =>
         Seq (
-          "com.chuusai" %% "shapeless" % "1.2.+"
+          "com.chuusai" %% "shapeless" % "1.2.4"
         , "ohnosequences" %% "statika" % sv
-        , "org.scalatest" %% "scalatest" % "1.9.+" % "test"
+        , "org.scalatest" %% "scalatest" % "1.9.1" % "test"
         )
       }
 
@@ -149,7 +149,7 @@ object SbtStatika extends Plugin {
       }
     , buildInfoPackage <<= bundlePackage { _+".meta"}
     , buildInfoObjectFormat <<= (bundlePackage, bundleObject) { (bp, bo) =>
-        "object %s extends ohnosequences.statika.MetaData.MetaDataOf["+bp+"."+bo+".type]"
+        "object %s extends ohnosequences.statika.MetaDataOf["+bp+"."+bo+".type]"
       }
     , buildInfoObject <<= bundleObject
     ) 
