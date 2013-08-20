@@ -137,8 +137,7 @@ object SbtStatika extends Plugin {
 
     , libraryDependencies <++= statikaVersion { sv =>
         Seq (
-          "com.chuusai" %% "shapeless" % "1.2.4"
-        , "ohnosequences" %% "statika" % sv
+          "ohnosequences" %% "statika" % sv
         , "org.scalatest" %% "scalatest" % "1.9.1" % "test"
         )
       }
