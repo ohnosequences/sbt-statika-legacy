@@ -134,6 +134,7 @@ object SbtStatika extends Plugin {
     , statikaVersion := "0.12.2"
 
     // dependencies
+    // TODO: remove dependencies, because we can't use here `0.1.+` version format
 
     , libraryDependencies <++= statikaVersion { sv =>
         Seq (
@@ -143,6 +144,7 @@ object SbtStatika extends Plugin {
       }
 
     // sbt-buildinfo plugin
+    // TODO: get rid of buildinfo plugin fork, as it can be done through sbt sourceGenerators directly
 
     , bundleObject := ""
     , bundlePackage <<= (organization){_+".statika"}
