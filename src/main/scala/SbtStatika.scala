@@ -156,7 +156,7 @@ object SbtStatika extends Plugin {
         (name, pkg, obj, resolvers, privateResolvers) =>
         Seq[BuildInfoKey](
           organization
-        , "artifact" -> name
+        , "artifact" -> name.toLowerCase
         , version
         , statikaVersion
         , "name" -> (pkg+"."+obj)
