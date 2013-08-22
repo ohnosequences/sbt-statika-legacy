@@ -156,21 +156,6 @@ trait SbtStatikaPlugin extends Plugin {
       }
 
 
-    // publishing (ivy-style by default)
-    , publishMavenStyle := false
-    , publishTo <<= (isSnapshot, s3credentials, isPrivate, publishMavenStyle) { 
-                      (snapshot,   credentials,   priv,    mvnStyle) => 
-        val privacy = if (priv) "private." else ""
-        val prefix = if (snapshot) "snapshots" else "releases"
-        credentials map S3Resolver( 
-            "Statika "+privacy+prefix+" S3 publishing bucket"
-          , "s3://"+privacy+prefix+".statika.ohnosequences.com"
-          , if(mvnStyle) mvn else ivy
-          ).toSbtResolver
-      }
-    , isPrivate := false
-
-
     // general settings
     , scalaVersion := "2.10.2"
     , scalacOptions ++= Seq(
