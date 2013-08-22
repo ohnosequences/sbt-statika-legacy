@@ -94,8 +94,8 @@ trait SbtStatikaPlugin extends Plugin {
           val privateResolvers = %s
         } 
         """ format (
-          name.toLowerCase
-        , organization
+          organization
+        , name.toLowerCase
         , version
         , statikaVersion
         , seqToStr(((resolvers ++ publicResolvers) map resolverToString) flatten)
