@@ -29,12 +29,6 @@ trait SbtStatikaPlugin extends Plugin {
   lazy val privateResolvers = SettingKey[Seq[S3Resolver]]("private-resolvers",
     "Private S3 resolvers for the bundle dependencies")
 
-  // convenience method, to use normal bucket addresses with `at`
-  def toHttp(bucket: String): String = 
-    if(bucket.startsWith("s3://"))
-       "http://"+bucket.stripPrefix("s3://")+".s3.amazonaws.com"
-    else bucket
-
 
   // just some local aliases
   private val mvn = Resolver.mavenStylePatterns
