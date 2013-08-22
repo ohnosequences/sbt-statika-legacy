@@ -1,9 +1,9 @@
+// package ohnosequences.statika.sbt
+
 import sbt._
 import Keys._
 
 import com.typesafe.sbt.SbtStartScript._
-
-import sbtbuildinfo.Plugin._
 
 import sbtrelease._
 import ReleaseStateTransformations._
@@ -12,36 +12,37 @@ import ReleaseKeys._
 
 import SbtS3Resolver._
 
-object SbtStatika extends Plugin {
+trait SbtStatikaPlugin extends Plugin {
 
-  lazy val bundlePackage = SettingKey[String]("bundle-package",
-    "Package name for the bundle")
-
-  lazy val bundleObject = SettingKey[String]("bundle-object",
-    "Supposed name of the bundle object")
+  lazy val bundleObjects = SettingKey[Seq[String]]("bundle-objects",
+    "Fully qualified names of the defined in code bundle objects")
 
   lazy val isPrivate = SettingKey[Boolean]("is-private", 
     "If true, publish to private S3 bucket, else to public")
 
   lazy val statikaVersion = SettingKey[String]("statika-version",
-    "statika library version")
+    "Statika library version")
+
+  lazy val publicResolvers = SettingKey[Seq[Resolver]]("public-resolvers",
+    "Public S3 resolvers for the bundle dependencies")
 
   lazy val privateResolvers = SettingKey[Seq[S3Resolver]]("private-resolvers",
-    "Private S3 resolvers for statika dependencies")
+    "Private S3 resolvers for the bundle dependencies")
 
   // convenience method, to use normal bucket addresses with `at`
-  def http(bucket: String): String = 
+  def toHttp(bucket: String): String = 
     if(bucket.startsWith("s3://"))
        "http://"+bucket.stripPrefix("s3://")+".s3.amazonaws.com"
     else bucket
 
 
-  // just a local aliases
+  // just some local aliases
   private val mvn = Resolver.mavenStylePatterns
   private val ivy = Resolver.ivyStylePatterns
 
   private def seqToString(s: Seq[String]): String = 
-    s.mkString("Seq(\\\"", "\\\", \\\"", "\\\")")
+    if (s.isEmpty) "Seq()"
+    else s.mkString("Seq(\\\"", "\\\", \\\"", "\\\")")
 
   private def patternsToString(ps: Patterns): String =
     "Patterns(%s, %s, %s)" format (
@@ -66,46 +67,97 @@ object SbtStatika extends Plugin {
     case _ => None
   }
 
-  override def settings = 
+
+  // generating metadata sourcecode
+  private def metadataFile(
+      sourceManaged: File
+    , bundleObjects: Seq[String]
+    , name: String
+    , organization: String
+    , version: String
+    , statikaVersion: String
+    , resolvers: Seq[Resolver]
+    , publicResolvers: Seq[Resolver]
+    , privateResolvers: Seq[S3Resolver]
+    ): Seq[File] = { 
+
+      def seqToStr(rs: Seq[String]) = 
+        if (rs.isEmpty) "Seq()"  
+        else rs.mkString("Seq(\"", "\", \"", "\")")
+
+      // common sbt metadata we define separately and then mix to each object
+      val commonPart = """
+        package generated.metadata
+
+        import ohnosequences.statika._
+
+        trait CommonMetaData extends MetaData {
+          val organization = "%s"
+          val artifact = "%s"
+          val version = "%s"
+          val statikaVersion = "%s"
+          val resolvers = %s
+          val privateResolvers = %s
+        } 
+        """ format (
+          name.toLowerCase
+        , organization
+        , version
+        , statikaVersion
+        , seqToStr(((resolvers ++ publicResolvers) map resolverToString) flatten)
+        , seqToStr(privateResolvers map (_.toString))
+        )
+
+      // the name of metadata object is the last part of bundle object name
+      val metaObjects = bundleObjects map { obj => """
+        object %s extends MetaDataOf[%s.type] with CommonMetaData {
+          val name = "%s"
+        }
+        """ format (obj.split('.').last, obj, obj)
+      }
+
+      // if there are no objects, don't generate anything
+      if (metaObjects.isEmpty) Seq()
+      else { 
+        // otherwise join generated text and write to a file
+        val file = sourceManaged / "metadata.scala" 
+        IO.write(file, commonPart + metaObjects.mkString)
+        Seq(file)
+      }
+    }
+
+
+  // here we add default set of setting to the project
+  def sbtStatikaSettings: Seq[Setting[_]] = 
     startScriptForClassesSettings ++
     releaseSettings ++
-    buildInfoSettings ++ 
     Seq(
-    // resolvers
 
+    // resolvers needed for statika dependency
       resolvers ++= Seq ( 
-        Resolver.typesafeRepo("releases")
-      , Resolver.sonatypeRepo("releases")
-      , Resolver.sonatypeRepo("snapshots")
-      , "Era7 public maven releases"  at http("s3://releases.era7.com")
-      , "Era7 public maven snapshots" at http("s3://snapshots.era7.com")
-      , "Statika public maven releases" at http("s3://releases.statika.ohnosequences.com")
-      , "Statika public maven snapshots" at http("s3://snapshots.statika.ohnosequences.com")
+      //   Resolver.typesafeRepo("releases")
+      // , Resolver.sonatypeRepo("releases")
+      // , Resolver.sonatypeRepo("snapshots")
+        "Era7 public maven releases"  at toHttp("s3://releases.era7.com")
+      , "Era7 public maven snapshots" at toHttp("s3://snapshots.era7.com")
       // ivy
-      , Resolver.url("Era7 public ivy releases", url(http("s3://releases.era7.com")))(ivy)
-      , Resolver.url("Era7 public ivy snapshots", url(http("s3://snapshots.era7.com")))(ivy)
-      , Resolver.url("Statika public ivy releases", url(http("s3://releases.statika.ohnosequences.com")))(ivy)
-      , Resolver.url("Statika public ivy snapshots", url(http("s3://snapshots.statika.ohnosequences.com")))(ivy)
-      )
+      , Resolver.url("Era7 public ivy releases", url(toHttp("s3://releases.era7.com")))(ivy)
+      , Resolver.url("Era7 public ivy snapshots", url(toHttp("s3://snapshots.era7.com")))(ivy)
+      ) 
 
-    // private resolvers
+    , publicResolvers := Seq()
+    , privateResolvers := Seq()
 
-    , privateResolvers := Seq(
-        S3Resolver("Statika private ivy releases",   "s3://private.releases.statika.ohnosequences.com", ivy)
-      , S3Resolver("Statika private maven releases", "s3://private.releases.statika.ohnosequences.com", mvn)
-      , S3Resolver("Statika private ivy snapshots",   "s3://private.snapshots.statika.ohnosequences.com", ivy)
-      , S3Resolver("Statika private maven snapshots", "s3://private.snapshots.statika.ohnosequences.com", mvn)
-      )
+    , resolvers <++= publicResolvers
 
     // adding privateResolvers to normal ones, if we have credentials
     , resolvers <++= (s3credentials, privateResolvers) { (cs, rs) => 
         rs map { r => cs map r.toSbtResolver } flatten
       }
 
-    // publishing
 
+    // publishing (ivy-style by default)
     , publishMavenStyle := false
-
     , publishTo <<= (isSnapshot, s3credentials, isPrivate, publishMavenStyle) { 
                       (snapshot,   credentials,   priv,    mvnStyle) => 
         val privacy = if (priv) "private." else ""
@@ -116,9 +168,11 @@ object SbtStatika extends Plugin {
           , if(mvnStyle) mvn else ivy
           ).toSbtResolver
       }
+    , isPrivate := false
 
-    // scalac options
 
+    // general settings
+    , scalaVersion := "2.10.2"
     , scalacOptions ++= Seq(
         "-feature"
       , "-language:higherKinds"
@@ -127,15 +181,8 @@ object SbtStatika extends Plugin {
       , "-unchecked"
       )
 
-    // general settings
-
-    , organization := "ohnosequences"
-    , scalaVersion := "2.10.2"
-    , statikaVersion := "0.12.2"
 
     // dependencies
-    // TODO: remove dependencies, because we can't use here `0.1.+` version format
-
     , libraryDependencies <++= statikaVersion { sv =>
         Seq (
           "ohnosequences" %% "statika" % sv
@@ -143,37 +190,24 @@ object SbtStatika extends Plugin {
         )
       }
 
-    // sbt-buildinfo plugin
-    // TODO: get rid of buildinfo plugin fork, as it can be done through sbt sourceGenerators directly
 
-    , bundleObject := ""
-    , bundlePackage <<= (organization){_+".statika"}
-
-    , sourceGenerators in Compile <++= (bundlePackage, bundleObject, buildInfo) { 
-          (bp, bo, bi)  =>  
-        if (bp.isEmpty || bo.isEmpty) Seq() else Seq(bi)
-      }
-    , buildInfoKeys <<= (name, bundlePackage, bundleObject, resolvers, privateResolvers) { 
-        (name, pkg, obj, resolvers, privateResolvers) =>
-        Seq[BuildInfoKey](
-          organization
-        , "artifact" -> name.toLowerCase
+    // metadata generation
+    , bundleObjects := Seq()
+    , sourceGenerators in Compile <+= (
+          sourceManaged in Compile
+        , bundleObjects
+        , name
+        , organization
         , version
         , statikaVersion
-        , "name" -> (pkg+"."+obj)
-        , "resolvers" -> ((resolvers map resolverToString).flatten)
-        , "privateResolvers" -> privateResolvers
-        )
-      }
-    , buildInfoPackage <<= bundlePackage { _+".meta"}
-    , buildInfoObjectFormat <<= (bundlePackage, bundleObject) { (bp, bo) =>
-        "object %s extends ohnosequences.statika.MetaDataOf["+bp+"."+bo+".type]"
-      }
-    , buildInfoObject <<= bundleObject
-    ) 
+        , resolvers
+        , publicResolvers
+        , privateResolvers
+        ) map metadataFile
+    )
+
 
     // sbt-release plugin
-
     releaseProcess <<= thisProjectRef apply { ref =>
       Seq[ReleaseStep](
         checkSnapshotDependencies
