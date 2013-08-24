@@ -29,6 +29,9 @@ trait SbtStatikaPlugin extends Plugin {
   lazy val privateResolvers = SettingKey[Seq[S3Resolver]]("private-resolvers",
     "Private S3 resolvers for the bundle dependencies")
 
+  lazy val instanceProfileARN = SettingKey[Option[String]]("instance-profile-arn",
+    "Amazon instance profile ARN corresponding to the role with credentials (for resolving)")
+
 
   // just some local aliases
   private val mvn = Resolver.mavenStylePatterns
@@ -73,6 +76,7 @@ trait SbtStatikaPlugin extends Plugin {
     , resolvers: Seq[Resolver]
     , publicResolvers: Seq[Resolver]
     , privateResolvers: Seq[S3Resolver]
+    , instanceProfileARN: Option[String]
     ): Seq[File] = { 
 
       def seqToStr(rs: Seq[String]) = 
@@ -92,6 +96,7 @@ trait SbtStatikaPlugin extends Plugin {
           val statikaVersion = "%s"
           val resolvers = %s
           val privateResolvers = %s
+          val instanceProfileARN = %s
         } 
         """ format (
           organization
@@ -100,6 +105,7 @@ trait SbtStatikaPlugin extends Plugin {
         , statikaVersion
         , seqToStr(((resolvers ++ publicResolvers) map resolverToString) flatten)
         , seqToStr(privateResolvers map (_.toString))
+        , if (instanceProfileARN.isEmpty) "None" else "Some(\""+instanceProfileARN.get+"\")"
         )
 
       // the name of metadata object is the last part of bundle object name
@@ -129,9 +135,6 @@ trait SbtStatikaPlugin extends Plugin {
 
     // resolvers needed for statika dependency
       resolvers ++= Seq ( 
-      //   Resolver.typesafeRepo("releases")
-      // , Resolver.sonatypeRepo("releases")
-      // , Resolver.sonatypeRepo("snapshots")
         "Era7 public maven releases"  at toHttp("s3://releases.era7.com")
       , "Era7 public maven snapshots" at toHttp("s3://snapshots.era7.com")
       // ivy
@@ -182,23 +185,24 @@ trait SbtStatikaPlugin extends Plugin {
         , resolvers
         , publicResolvers
         , privateResolvers
+        , instanceProfileARN
         ) map metadataFile
-    )
 
 
     // sbt-release plugin
-    releaseProcess <<= thisProjectRef apply { ref =>
-      Seq[ReleaseStep](
-        checkSnapshotDependencies
-      , inquireVersions
-      , runTest
-      , setReleaseVersion
-      , commitReleaseVersion
-      , tagRelease
-      , publishArtifacts
-      , setNextVersion
-      , pushChanges
-      )
-    }
+    , releaseProcess <<= thisProjectRef apply { ref =>
+        Seq[ReleaseStep](
+          checkSnapshotDependencies
+        , inquireVersions
+        , runTest
+        , setReleaseVersion
+        , commitReleaseVersion
+        , tagRelease
+        , publishArtifacts
+        , setNextVersion
+        , pushChanges
+        )
+      }
 
+    )
 }
