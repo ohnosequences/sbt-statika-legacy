@@ -84,12 +84,13 @@ trait SbtStatikaPlugin extends Plugin {
         else rs.mkString("Seq(\"", "\", \"", "\")")
 
       // common sbt metadata we define separately and then mix to each object
-      val commonPart = """
+      val header = """
         package generated.metadata
 
         import ohnosequences.statika._
+      """
 
-        trait CommonMetaData extends MetaData {
+      val commonPart = """
           val organization = "%s"
           val artifact = "%s"
           val version = "%s"
@@ -97,7 +98,6 @@ trait SbtStatikaPlugin extends Plugin {
           val resolvers = %s
           val privateResolvers = %s
           val instanceProfileARN = %s
-        } 
         """ format (
           organization
         , name.toLowerCase
@@ -110,10 +110,11 @@ trait SbtStatikaPlugin extends Plugin {
 
       // the name of metadata object is the last part of bundle object name
       val metaObjects = bundleObjects map { obj => """
-        object %s extends MetaDataOf[%s.type] with CommonMetaData {
+        object %s extends MetaDataOf[%s.type] {
           val name = "%s"
+          %s
         }
-        """ format (obj.split('.').last, obj, obj)
+        """ format (obj.split('.').last, obj, obj, commonPart)
       }
 
       // if there are no objects, don't generate anything
@@ -121,7 +122,7 @@ trait SbtStatikaPlugin extends Plugin {
       else { 
         // otherwise join generated text and write to a file
         val file = sourceManaged / "metadata.scala" 
-        IO.write(file, commonPart + metaObjects.mkString)
+        IO.write(file, header + metaObjects.mkString)
         Seq(file)
       }
     }
