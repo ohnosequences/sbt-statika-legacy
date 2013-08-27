@@ -118,7 +118,7 @@ trait SbtStatikaPlugin extends Plugin {
       val metaObjects = bundleObjects map { obj => 
         val name = cleanName(obj)
         """
-        object %s extends MetaDataOf[%s.type] {
+        object %s extends MetaDataOf[%s] {
           val name = "%s"
           %s
         }
