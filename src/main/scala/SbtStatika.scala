@@ -64,9 +64,6 @@ trait SbtStatikaPlugin extends Plugin {
     case _ => None
   }
 
-  def classType(n: String)
-
-
   // generating metadata sourcecode
   private def metadataFile(
       sourceManaged: File
