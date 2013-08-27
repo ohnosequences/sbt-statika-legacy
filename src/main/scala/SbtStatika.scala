@@ -64,6 +64,8 @@ trait SbtStatikaPlugin extends Plugin {
     case _ => None
   }
 
+  def classType(n: String)
+
 
   // generating metadata sourcecode
   private def metadataFile(
@@ -108,13 +110,22 @@ trait SbtStatikaPlugin extends Plugin {
         , if (instanceProfileARN.isEmpty) "None" else "Some(\""+instanceProfileARN.get+"\")"
         )
 
+      def cleanName(n: String) = 
+        if (n.endsWith("()")) {
+          val nn = n.stripSuffix("()")
+          (nn.split('.').last, nn, nn)
+        } else 
+          (n.split('.').last, n+".type", n)
+
       // the name of metadata object is the last part of bundle object name
-      val metaObjects = bundleObjects map { obj => """
+      val metaObjects = bundleObjects map { obj => 
+        val name = cleanName(obj)
+        """
         object %s extends MetaDataOf[%s.type] {
           val name = "%s"
           %s
         }
-        """ format (obj.split('.').last, obj, obj, commonPart)
+        """ format (name._1, name._2, name._3, commonPart)
       }
 
       // if there are no objects, don't generate anything
