@@ -64,7 +64,6 @@ trait SbtStatikaPlugin extends Plugin {
     case _ => None
   }
 
-
   // generating metadata sourcecode
   private def metadataFile(
       sourceManaged: File
@@ -84,12 +83,13 @@ trait SbtStatikaPlugin extends Plugin {
         else rs.mkString("Seq(\"", "\", \"", "\")")
 
       // common sbt metadata we define separately and then mix to each object
-      val commonPart = """
+      val header = """
         package generated.metadata
 
         import ohnosequences.statika._
+      """
 
-        trait CommonMetaData extends MetaData {
+      val commonPart = """
           val organization = "%s"
           val artifact = "%s"
           val version = "%s"
@@ -97,7 +97,6 @@ trait SbtStatikaPlugin extends Plugin {
           val resolvers = %s
           val privateResolvers = %s
           val instanceProfileARN = %s
-        } 
         """ format (
           organization
         , name.toLowerCase
@@ -108,12 +107,22 @@ trait SbtStatikaPlugin extends Plugin {
         , if (instanceProfileARN.isEmpty) "None" else "Some(\""+instanceProfileARN.get+"\")"
         )
 
+      def cleanName(n: String) = 
+        if (n.endsWith("()")) {
+          val nn = n.stripSuffix("()")
+          (nn.split('.').last, nn, nn)
+        } else 
+          (n.split('.').last, n+".type", n)
+
       // the name of metadata object is the last part of bundle object name
-      val metaObjects = bundleObjects map { obj => """
-        object %s extends MetaDataOf[%s.type] with CommonMetaData {
+      val metaObjects = bundleObjects map { obj => 
+        val name = cleanName(obj)
+        """
+        object %s extends MetaDataOf[%s] {
           val name = "%s"
+          %s
         }
-        """ format (obj.split('.').last, obj, obj)
+        """ format (name._1, name._2, name._3, commonPart)
       }
 
       // if there are no objects, don't generate anything
@@ -121,7 +130,7 @@ trait SbtStatikaPlugin extends Plugin {
       else { 
         // otherwise join generated text and write to a file
         val file = sourceManaged / "metadata.scala" 
-        IO.write(file, commonPart + metaObjects.mkString)
+        IO.write(file, header + metaObjects.mkString)
         Seq(file)
       }
     }
