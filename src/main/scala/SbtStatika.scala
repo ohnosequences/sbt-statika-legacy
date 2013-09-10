@@ -11,8 +11,9 @@ import ReleasePlugin._
 import ReleaseKeys._
 
 import SbtS3Resolver._
+import Utils._
 
-trait SbtStatikaPlugin extends Plugin {
+object SbtStatikaPlugin extends Plugin {
 
   lazy val bundleObjects = SettingKey[Seq[String]]("bundle-objects",
     "Fully qualified names of the defined in code bundle objects")
@@ -38,37 +39,10 @@ trait SbtStatikaPlugin extends Plugin {
   lazy val instanceProfileARN = SettingKey[Option[String]]("instance-profile-arn",
     "Amazon instance profile ARN corresponding to the role with credentials (for resolving)")
 
+  lazy val bucketSuffix = SettingKey[String]("bucket-suffix",
+    "Amazon S3 bucket suffix for resolvers")
 
-  // just some local aliases
-  private val mvn = Resolver.mavenStylePatterns
-  private val ivy = Resolver.ivyStylePatterns
-
-  private def seqToString(s: Seq[String]): String = 
-    if (s.isEmpty) "Seq()"
-    else s.mkString("Seq(\\\"", "\\\", \\\"", "\\\")")
-
-  private def patternsToString(ps: Patterns): String =
-    "Patterns(%s, %s, %s)" format (
-      seqToString(ps.ivyPatterns)
-    , seqToString(ps.artifactPatterns)
-    , ps.isMavenCompatible
-    )
-
-  // TODO: write serializers for the rest of resolvers types
-  private def resolverToString(r: Resolver): Option[String] = r match {
-    case MavenRepository(name: String, root: String) => Some(
-      """MavenRepository(\"%s\", \"%s\")""" format (name, root)
-      )
-    case URLRepository(name: String, patterns: Patterns) => Some(
-      """URLRepository(\"%s\", %s)""" format 
-        (name, patternsToString(patterns))
-      )
-    // case ChainedResolver(name: String, resolvers: Seq[Resolver]) => 
-    // case FileRepository(name: String, configuration: FileConfiguration, patterns: Patterns) => 
-    // case SshRepository(name: String, connection: SshConnection, patterns: Patterns, publishPermissions: Option[String]) => 
-    // case SftpRepository(name: String, connection: SshConnection, patterns: Patterns) => 
-    case _ => None
-  }
+  //////////////////////////////////////////////////////////////////////////////
 
   // generating metadata sourcecode
   private def metadataFile(
@@ -143,7 +117,7 @@ trait SbtStatikaPlugin extends Plugin {
 
 
   // here we add default set of setting to the project
-  def sbtStatikaSettings: Seq[Setting[_]] = 
+  override def projectSettings = 
     startScriptForClassesSettings ++
     releaseSettings ++
     Seq(
@@ -157,8 +131,21 @@ trait SbtStatikaPlugin extends Plugin {
       , Resolver.url("Era7 public ivy snapshots", url(toHttp("s3://snapshots.era7.com")))(ivy)
       ) 
 
-    , publicResolvers := Seq()
-    , privateResolvers := Seq()
+    , publicResolvers <<= bucketSuffix { suffix => Seq(
+          Resolver.url("Statika public ivy releases", url(toHttp("s3://releases."+suffix)))(ivy)
+        , Resolver.url("Statika public ivy snapshots", url(toHttp("s3://snapshots."+suffix)))(ivy)
+        // , "Statika public maven releases" at toHttp("s3://releases."+suffix)
+        // , "Statika public maven snapshots" at toHttp("s3://snapshots."+suffix)
+        )
+      }
+
+    , privateResolvers <<= bucketSuffix { suffix => Seq(
+          S3Resolver("Statika private ivy releases",    "s3://private.releases."+suffix, ivy)
+        , S3Resolver("Statika private ivy snapshots",   "s3://private.snapshots."+suffix, ivy)
+        // , S3Resolver("Statika private maven releases",  "s3://private.releases."+suffix, mvn)
+        // , S3Resolver("Statika private maven snapshots", "s3://private.snapshots."+suffix, mvn)
+        )
+      }
 
     , resolvers <++= publicResolvers
 
@@ -168,7 +155,28 @@ trait SbtStatikaPlugin extends Plugin {
       }
 
 
+    // publishing (ivy-style by default)
+    , isPrivate := false
+    , publishMavenStyle := false
+    , publishTo <<= (isSnapshot, s3credentials, isPrivate, publishMavenStyle, bucketSuffix) { 
+                      (snapshot,   credentials,   priv,    mvnStyle,          suffix) => 
+        val privacy = if (priv) "private." else ""
+        val prefix = if (snapshot) "snapshots" else "releases"
+        credentials map S3Resolver( 
+            "Statika "+privacy+prefix+" S3 publishing bucket"
+          , "s3://"+privacy+prefix+"."+suffix
+          , if(mvnStyle) mvn else ivy
+          ).toSbtResolver
+      }
+
+
     // general settings
+    , statikaVersion := "0.14.0"
+    , awsStatikaVersion := "0.1.1"
+
+    , bucketSuffix <<= organization {"statika."+_+".com"}
+    , instanceProfileARN := None
+
     , scalaVersion := "2.10.2"
     , scalacOptions ++= Seq(
         "-feature"
