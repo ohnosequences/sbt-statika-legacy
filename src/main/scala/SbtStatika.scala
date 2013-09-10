@@ -23,6 +23,12 @@ trait SbtStatikaPlugin extends Plugin {
   lazy val statikaVersion = SettingKey[String]("statika-version",
     "Statika library version")
 
+
+  // AWS-specific keys:
+
+  lazy val awsStatikaVersion = SettingKey[String]("aws-statika-version",
+    "AWS-Statika library version")
+
   lazy val publicResolvers = SettingKey[Seq[Resolver]]("public-resolvers",
     "Public S3 resolvers for the bundle dependencies")
 
@@ -86,7 +92,7 @@ trait SbtStatikaPlugin extends Plugin {
       val header = """
         package generated.metadata
 
-        import ohnosequences.statika._
+        import ohnosequences.statika.aws._
       """
 
       val commonPart = """
@@ -118,7 +124,7 @@ trait SbtStatikaPlugin extends Plugin {
       val metaObjects = bundleObjects map { obj => 
         val name = cleanName(obj)
         """
-        object %s extends MetaDataOf[%s] {
+        object %s extends AWSMetadataOf[%s] {
           val name = "%s"
           %s
         }
@@ -174,9 +180,10 @@ trait SbtStatikaPlugin extends Plugin {
 
 
     // dependencies
-    , libraryDependencies <++= statikaVersion { sv =>
+    , libraryDependencies <++= (statikaVersion, awsStatikaVersion) { (sv, awssv) =>
         Seq (
           "ohnosequences" %% "statika" % sv
+        , "ohnosequences" %% "aws-statika" % awssv
         , "org.scalatest" %% "scalatest" % "1.9.1" % "test"
         )
       }
