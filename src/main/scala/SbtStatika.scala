@@ -55,7 +55,6 @@ object SbtStatikaPlugin extends Plugin {
     , resolvers: Seq[Resolver]
     , publicResolvers: Seq[Resolver]
     , privateResolvers: Seq[S3Resolver]
-    , instanceProfileARN: Option[String]
     ): Seq[File] = { 
 
       def seqToStr(rs: Seq[String]) = 
@@ -66,7 +65,7 @@ object SbtStatikaPlugin extends Plugin {
       val header = """
         package generated.metadata
 
-        import ohnosequences.statika.aws._
+        import ohnosequences.statika._
       """
 
       val commonPart = """
@@ -76,7 +75,6 @@ object SbtStatikaPlugin extends Plugin {
           val statikaVersion = "%s"
           val resolvers = %s
           val privateResolvers = %s
-          val instanceProfileARN = %s
         """ format (
           organization
         , name.toLowerCase
@@ -84,7 +82,6 @@ object SbtStatikaPlugin extends Plugin {
         , statikaVersion
         , seqToStr(((resolvers ++ publicResolvers) map resolverToString) flatten)
         , seqToStr(privateResolvers map (_.toString))
-        , if (instanceProfileARN.isEmpty) "None" else "Some(\""+instanceProfileARN.get+"\")"
         )
 
       def cleanName(n: String) = 
@@ -98,7 +95,7 @@ object SbtStatikaPlugin extends Plugin {
       val metaObjects = bundleObjects map { obj => 
         val name = cleanName(obj)
         """
-        object %s extends AWSMetadataOf[%s] {
+        object %s extends MetadataOf[%s] {
           val name = "%s"
           %s
         }
@@ -139,12 +136,13 @@ object SbtStatikaPlugin extends Plugin {
         )
       }
 
-    , privateResolvers <<= bucketSuffix { suffix => Seq(
-          S3Resolver("Statika private ivy releases",    "s3://private.releases."+suffix, ivy)
-        , S3Resolver("Statika private ivy snapshots",   "s3://private.snapshots."+suffix, ivy)
-        // , S3Resolver("Statika private maven releases",  "s3://private.releases."+suffix, mvn)
-        // , S3Resolver("Statika private maven snapshots", "s3://private.snapshots."+suffix, mvn)
-        )
+    , privateResolvers <<= (isPrivate, bucketSuffix) { (priv, suffix) =>
+        if (!priv) Seq() else Seq(
+            S3Resolver("Statika private ivy releases",  "s3://private.releases."+suffix, ivy)
+          , S3Resolver("Statika private ivy snapshots", "s3://private.snapshots."+suffix, ivy)
+          // , S3Resolver("Statika private maven releases",  "s3://private.releases."+suffix, mvn)
+          // , S3Resolver("Statika private maven snapshots", "s3://private.snapshots."+suffix, mvn)
+          )
       }
 
     , resolvers <++= publicResolvers
@@ -209,7 +207,6 @@ object SbtStatikaPlugin extends Plugin {
         , resolvers
         , publicResolvers
         , privateResolvers
-        , instanceProfileARN
         ) map metadataFile
 
 
