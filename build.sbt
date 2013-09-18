@@ -14,10 +14,6 @@ organization := "ohnosequences"
 description := "Default sbt project settings for statika bundles"
 
 
-// scalaVersion := "2.10.2"
-
-// crossScalaVersions := Seq("2.9.2", "2.10.2")
-
 crossBuildingSettings
 
 CrossBuilding.crossSbtVersions := Seq("0.12", "0.13")
@@ -55,7 +51,7 @@ libraryDependencies <++= (sbtVersion in sbtPlugin, scalaBinaryVersion) { (sbtV, 
                         (if (sbtV == "0.13") "0.10.0" else "0.9.0"), sbtV, scalaV)
   )
 }
-
-// addSbtPlugin("ohnosequences" % "sbt-s3-resolver" % "0.6.0")
-// addSbtPlugin("com.github.gseitz" % "sbt-release" % "0.7.1")
-// addSbtPlugin("com.typesafe.sbt" % "sbt-start-script" % "0.8.0")
+// instead of usual:
+//    addSbtPlugin("ohnosequences" % "sbt-s3-resolver" % "0.6.0")
+//    addSbtPlugin("com.github.gseitz" % "sbt-release" % "0.7.1")
+//    addSbtPlugin("com.typesafe.sbt" % "sbt-start-script" % "0.8.0")

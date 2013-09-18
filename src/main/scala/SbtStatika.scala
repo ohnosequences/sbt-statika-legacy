@@ -36,9 +36,6 @@ object SbtStatikaPlugin extends Plugin {
   lazy val privateResolvers = SettingKey[Seq[S3Resolver]]("private-resolvers",
     "Private S3 resolvers for the bundle dependencies")
 
-  lazy val instanceProfileARN = SettingKey[Option[String]]("instance-profile-arn",
-    "Amazon instance profile ARN corresponding to the role with credentials (for resolving)")
-
   lazy val bucketSuffix = SettingKey[String]("bucket-suffix",
     "Amazon S3 bucket suffix for resolvers")
 
@@ -169,11 +166,10 @@ object SbtStatikaPlugin extends Plugin {
 
 
     // general settings
-    , statikaVersion := "0.14.0"
-    , awsStatikaVersion := "0.1.1"
+    , statikaVersion := "0.15.0-SNAPSHOT"
+    , awsStatikaVersion := "0.2.0-SNAPSHOT"
 
     , bucketSuffix <<= organization {"statika."+_+".com"}
-    , instanceProfileARN := None
 
     , scalaVersion := "2.10.2"
     , scalacOptions ++= Seq(
