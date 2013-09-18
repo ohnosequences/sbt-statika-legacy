@@ -27,9 +27,6 @@ object SbtStatikaPlugin extends Plugin {
 
   // AWS-specific keys:
 
-  lazy val awsStatikaVersion = SettingKey[String]("aws-statika-version",
-    "AWS-Statika library version")
-
   lazy val publicResolvers = SettingKey[Seq[Resolver]]("public-resolvers",
     "Public S3 resolvers for the bundle dependencies")
 
@@ -169,7 +166,6 @@ object SbtStatikaPlugin extends Plugin {
 
     // general settings
     , statikaVersion := "0.15.0-SNAPSHOT"
-    , awsStatikaVersion := "0.2.0-SNAPSHOT"
 
     , scalaVersion := "2.10.2"
     , scalacOptions ++= Seq(
@@ -183,10 +179,9 @@ object SbtStatikaPlugin extends Plugin {
 
 
     // dependencies
-    , libraryDependencies <++= (statikaVersion, awsStatikaVersion) { (sv, awssv) =>
+    , libraryDependencies <++= statikaVersion { sv =>
         Seq (
           "ohnosequences" %% "statika" % sv
-        , "ohnosequences" %% "aws-statika" % awssv
         , "org.scalatest" %% "scalatest" % "1.9.1" % "test"
         )
       }
