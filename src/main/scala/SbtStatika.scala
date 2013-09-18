@@ -39,6 +39,9 @@ object SbtStatikaPlugin extends Plugin {
   lazy val bucketSuffix = SettingKey[String]("bucket-suffix",
     "Amazon S3 bucket suffix for resolvers")
 
+  lazy val publishBucketSuffix = SettingKey[String]("publish-bucket-suffix",
+    "Amazon S3 bucket suffix for publish-to resolver")
+
   //////////////////////////////////////////////////////////////////////////////
 
   // generating metadata sourcecode
@@ -125,11 +128,11 @@ object SbtStatikaPlugin extends Plugin {
       , Resolver.url("Era7 public ivy snapshots", url(toHttp("s3://snapshots.era7.com")))(ivy)
       ) 
 
+    , bucketSuffix <<= organization {"statika."+_+".com"}
+
     , publicResolvers <<= bucketSuffix { suffix => Seq(
           Resolver.url("Statika public ivy releases", url(toHttp("s3://releases."+suffix)))(ivy)
         , Resolver.url("Statika public ivy snapshots", url(toHttp("s3://snapshots."+suffix)))(ivy)
-        // , "Statika public maven releases" at toHttp("s3://releases."+suffix)
-        // , "Statika public maven snapshots" at toHttp("s3://snapshots."+suffix)
         )
       }
 
@@ -137,8 +140,6 @@ object SbtStatikaPlugin extends Plugin {
         if (!priv) Seq() else Seq(
             S3Resolver("Statika private ivy releases",  "s3://private.releases."+suffix, ivy)
           , S3Resolver("Statika private ivy snapshots", "s3://private.snapshots."+suffix, ivy)
-          // , S3Resolver("Statika private maven releases",  "s3://private.releases."+suffix, mvn)
-          // , S3Resolver("Statika private maven snapshots", "s3://private.snapshots."+suffix, mvn)
           )
       }
 
@@ -153,7 +154,8 @@ object SbtStatikaPlugin extends Plugin {
     // publishing (ivy-style by default)
     , isPrivate := false
     , publishMavenStyle := false
-    , publishTo <<= (isSnapshot, s3credentials, isPrivate, publishMavenStyle, bucketSuffix) { 
+    , publishBucketSuffix <<= bucketSuffix
+    , publishTo <<= (isSnapshot, s3credentials, isPrivate, publishMavenStyle, publishBucketSuffix) { 
                       (snapshot,   credentials,   priv,    mvnStyle,          suffix) => 
         val privacy = if (priv) "private." else ""
         val prefix = if (snapshot) "snapshots" else "releases"
@@ -169,13 +171,12 @@ object SbtStatikaPlugin extends Plugin {
     , statikaVersion := "0.15.0-SNAPSHOT"
     , awsStatikaVersion := "0.2.0-SNAPSHOT"
 
-    , bucketSuffix <<= organization {"statika."+_+".com"}
-
     , scalaVersion := "2.10.2"
     , scalacOptions ++= Seq(
         "-feature"
       , "-language:higherKinds"
       , "-language:implicitConversions"
+      , "-language:postfixOps"
       , "-deprecation"
       , "-unchecked"
       )
