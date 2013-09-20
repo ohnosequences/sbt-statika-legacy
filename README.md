@@ -9,25 +9,27 @@ Add the following dependency to `project/plugins.sbt` file in your sbt project
 ```scala
 resolvers += "Era7 maven releases" at "http://releases.era7.com.s3.amazonaws.com"
 
-libraryDependencies += "ohnosequences" %% "sbt-statika" % "0.9.0"
+addSbtPlugin("ohnosequences" % "sbt-statika" % "0.9.0")
 ```
 
 #### Settings
 
-This plugin defines some settings, that can be useful in your project:
+Here is the list of sbt settings defined by this plugin (with their types and defaults):
 
-* `statikaVersion` — Statika library version
-* `bundleObjects` — Fully qualified names of the defined in code bundle objects for metadata generation
-* `isPrivate` — If true, publish to private S3 bucket, else to public (also adds private resolvers)
+* `statikaVersion: String = "0.15.0"` — Statika library version
+* `bundleObjects: Seq[String] = Seq()` — Fully qualified names of the defined in code bundle objects for metadata generation
+* `isPrivate: Boolean = false` — If true, publish to private S3 bucket, else to public (also adds private resolvers)
 
 AWS-specific keys:
 
-* `publicResolvers` — Public S3 resolvers for the bundle dependencies
-* `privateResolvers` — Private S3 resolvers for the bundle dependencies
-* `bucketSuffix` — Amazon S3 bucket suffix for resolvers
-* `publishBucketSuffix` — Amazon S3 bucket suffix for publish-to resolver
-
-Note, that you should explicitly set `organization` key in your project.
+* `publicResolvers: Seq[Resolver]` — Public S3 resolvers for the bundle dependencies. Defaults are ivy resolvers for the following buckets: 
+  + `"s3://releases." + bucketSuffix`
+  + `"s3://snapshots." + bucketSuffix`
+* `privateResolvers: Seq[S3Resolver]` — Private S3 resolvers for the bundle dependencies. Defaults are ivy **s3-resolvers** (see [sbt-s3-resolver](https://github.com/ohnosequences/sbt-s3-resolver) plugin) for the following buckets: 
+  + `"s3://private.releases." + bucketSuffix`
+  + `"s3://private.snapshots." + bucketSuffix`
+* `bucketSuffix: String = "statika." + organization + ".com"` — Amazon S3 bucket suffix for resolvers. Note, that you should explicitly set `organization` key in your project
+* `publishBucketSuffix: String = bucketSuffix` — Amazon S3 bucket suffix for publish-to resolver
 
 
 #### Dependencies
