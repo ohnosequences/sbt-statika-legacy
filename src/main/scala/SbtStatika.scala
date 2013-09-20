@@ -165,7 +165,7 @@ object SbtStatikaPlugin extends Plugin {
 
 
     // general settings
-    , statikaVersion := "0.15.0-SNAPSHOT"
+    , statikaVersion := "0.15.0"
 
     , scalaVersion := "2.10.2"
     , scalacOptions ++= Seq(
