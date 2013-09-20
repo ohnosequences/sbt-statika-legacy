@@ -11,8 +11,9 @@ import ReleasePlugin._
 import ReleaseKeys._
 
 import SbtS3Resolver._
+import Utils._
 
-trait SbtStatikaPlugin extends Plugin {
+object SbtStatikaPlugin extends Plugin {
 
   lazy val bundleObjects = SettingKey[Seq[String]]("bundle-objects",
     "Fully qualified names of the defined in code bundle objects")
@@ -26,49 +27,19 @@ trait SbtStatikaPlugin extends Plugin {
 
   // AWS-specific keys:
 
-  lazy val awsStatikaVersion = SettingKey[String]("aws-statika-version",
-    "AWS-Statika library version")
-
   lazy val publicResolvers = SettingKey[Seq[Resolver]]("public-resolvers",
     "Public S3 resolvers for the bundle dependencies")
 
   lazy val privateResolvers = SettingKey[Seq[S3Resolver]]("private-resolvers",
     "Private S3 resolvers for the bundle dependencies")
 
-  lazy val instanceProfileARN = SettingKey[Option[String]]("instance-profile-arn",
-    "Amazon instance profile ARN corresponding to the role with credentials (for resolving)")
+  lazy val bucketSuffix = SettingKey[String]("bucket-suffix",
+    "Amazon S3 bucket suffix for resolvers")
 
+  lazy val publishBucketSuffix = SettingKey[String]("publish-bucket-suffix",
+    "Amazon S3 bucket suffix for publish-to resolver")
 
-  // just some local aliases
-  private val mvn = Resolver.mavenStylePatterns
-  private val ivy = Resolver.ivyStylePatterns
-
-  private def seqToString(s: Seq[String]): String = 
-    if (s.isEmpty) "Seq()"
-    else s.mkString("Seq(\\\"", "\\\", \\\"", "\\\")")
-
-  private def patternsToString(ps: Patterns): String =
-    "Patterns(%s, %s, %s)" format (
-      seqToString(ps.ivyPatterns)
-    , seqToString(ps.artifactPatterns)
-    , ps.isMavenCompatible
-    )
-
-  // TODO: write serializers for the rest of resolvers types
-  private def resolverToString(r: Resolver): Option[String] = r match {
-    case MavenRepository(name: String, root: String) => Some(
-      """MavenRepository(\"%s\", \"%s\")""" format (name, root)
-      )
-    case URLRepository(name: String, patterns: Patterns) => Some(
-      """URLRepository(\"%s\", %s)""" format 
-        (name, patternsToString(patterns))
-      )
-    // case ChainedResolver(name: String, resolvers: Seq[Resolver]) => 
-    // case FileRepository(name: String, configuration: FileConfiguration, patterns: Patterns) => 
-    // case SshRepository(name: String, connection: SshConnection, patterns: Patterns, publishPermissions: Option[String]) => 
-    // case SftpRepository(name: String, connection: SshConnection, patterns: Patterns) => 
-    case _ => None
-  }
+  //////////////////////////////////////////////////////////////////////////////
 
   // generating metadata sourcecode
   private def metadataFile(
@@ -81,7 +52,6 @@ trait SbtStatikaPlugin extends Plugin {
     , resolvers: Seq[Resolver]
     , publicResolvers: Seq[Resolver]
     , privateResolvers: Seq[S3Resolver]
-    , instanceProfileARN: Option[String]
     ): Seq[File] = { 
 
       def seqToStr(rs: Seq[String]) = 
@@ -92,7 +62,7 @@ trait SbtStatikaPlugin extends Plugin {
       val header = """
         package generated.metadata
 
-        import ohnosequences.statika.aws._
+        import ohnosequences.statika._
       """
 
       val commonPart = """
@@ -102,7 +72,6 @@ trait SbtStatikaPlugin extends Plugin {
           val statikaVersion = "%s"
           val resolvers = %s
           val privateResolvers = %s
-          val instanceProfileARN = %s
         """ format (
           organization
         , name.toLowerCase
@@ -110,7 +79,6 @@ trait SbtStatikaPlugin extends Plugin {
         , statikaVersion
         , seqToStr(((resolvers ++ publicResolvers) map resolverToString) flatten)
         , seqToStr(privateResolvers map (_.toString))
-        , if (instanceProfileARN.isEmpty) "None" else "Some(\""+instanceProfileARN.get+"\")"
         )
 
       def cleanName(n: String) = 
@@ -124,7 +92,7 @@ trait SbtStatikaPlugin extends Plugin {
       val metaObjects = bundleObjects map { obj => 
         val name = cleanName(obj)
         """
-        object %s extends AWSMetadataOf[%s] {
+        object %s extends MetadataOf[%s] {
           val name = "%s"
           %s
         }
@@ -143,7 +111,7 @@ trait SbtStatikaPlugin extends Plugin {
 
 
   // here we add default set of setting to the project
-  def sbtStatikaSettings: Seq[Setting[_]] = 
+  override def projectSettings = 
     startScriptForClassesSettings ++
     releaseSettings ++
     Seq(
@@ -157,8 +125,20 @@ trait SbtStatikaPlugin extends Plugin {
       , Resolver.url("Era7 public ivy snapshots", url(toHttp("s3://snapshots.era7.com")))(ivy)
       ) 
 
-    , publicResolvers := Seq()
-    , privateResolvers := Seq()
+    , bucketSuffix <<= organization {"statika."+_+".com"}
+
+    , publicResolvers <<= bucketSuffix { suffix => Seq(
+          Resolver.url("Statika public ivy releases", url(toHttp("s3://releases."+suffix)))(ivy)
+        , Resolver.url("Statika public ivy snapshots", url(toHttp("s3://snapshots."+suffix)))(ivy)
+        )
+      }
+
+    , privateResolvers <<= (isPrivate, bucketSuffix) { (priv, suffix) =>
+        if (!priv) Seq() else Seq(
+            S3Resolver("Statika private ivy releases",  "s3://private.releases."+suffix, ivy)
+          , S3Resolver("Statika private ivy snapshots", "s3://private.snapshots."+suffix, ivy)
+          )
+      }
 
     , resolvers <++= publicResolvers
 
@@ -168,22 +148,40 @@ trait SbtStatikaPlugin extends Plugin {
       }
 
 
+    // publishing (ivy-style by default)
+    , isPrivate := false
+    , publishMavenStyle := false
+    , publishBucketSuffix <<= bucketSuffix
+    , publishTo <<= (isSnapshot, s3credentials, isPrivate, publishMavenStyle, publishBucketSuffix) { 
+                      (snapshot,   credentials,   priv,    mvnStyle,          suffix) => 
+        val privacy = if (priv) "private." else ""
+        val prefix = if (snapshot) "snapshots" else "releases"
+        credentials map S3Resolver( 
+            "Statika "+privacy+prefix+" S3 publishing bucket"
+          , "s3://"+privacy+prefix+"."+suffix
+          , if(mvnStyle) mvn else ivy
+          ).toSbtResolver
+      }
+
+
     // general settings
+    , statikaVersion := "0.15.0-SNAPSHOT"
+
     , scalaVersion := "2.10.2"
     , scalacOptions ++= Seq(
         "-feature"
       , "-language:higherKinds"
       , "-language:implicitConversions"
+      , "-language:postfixOps"
       , "-deprecation"
       , "-unchecked"
       )
 
 
     // dependencies
-    , libraryDependencies <++= (statikaVersion, awsStatikaVersion) { (sv, awssv) =>
+    , libraryDependencies <++= statikaVersion { sv =>
         Seq (
           "ohnosequences" %% "statika" % sv
-        , "ohnosequences" %% "aws-statika" % awssv
         , "org.scalatest" %% "scalatest" % "1.9.1" % "test"
         )
       }
@@ -201,7 +199,6 @@ trait SbtStatikaPlugin extends Plugin {
         , resolvers
         , publicResolvers
         , privateResolvers
-        , instanceProfileARN
         ) map metadataFile
 
 
