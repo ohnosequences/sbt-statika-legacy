@@ -46,6 +46,7 @@ resolvers ++= Seq (
 // NOTE: instead of addSbtPlugin, we need to use sbtPluginExtra, to set the right sbt and scala versions explicitly (otherwise they are mixed up)
 libraryDependencies <++= (sbtVersion in sbtPlugin, scalaBinaryVersion) { (sbtV, scalaV) => Seq[ModuleID](
     sbtPluginExtra("ohnosequences" % "sbt-s3-resolver" % "0.6.0",    sbtV, scalaV)
+    // TODO: replace by normal sbt-release, when they will merge cross-building pull-request
   , sbtPluginExtra("ohnosequences" % "sbt-release" % "0.8-SNAPSHOT", sbtV, scalaV)
   , sbtPluginExtra("com.typesafe.sbt" % "sbt-start-script" % 
                         (if (sbtV == "0.13") "0.10.0" else "0.9.0"), sbtV, scalaV)
