@@ -188,6 +188,8 @@ object SbtStatikaPlugin extends Plugin {
         )
       }
 
+    // this doesn't allow any conflicts in dependencies:
+    , conflictManager := ConflictManager.strict
 
     // metadata generation
     , bundleObjects := Seq()
