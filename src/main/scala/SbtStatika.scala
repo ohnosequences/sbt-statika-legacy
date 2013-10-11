@@ -58,7 +58,7 @@ object SbtStatikaPlugin extends Plugin {
         if (rs.isEmpty) "Seq()"  
         else rs.mkString("Seq(\"", "\", \"", "\")")
 
-      // common sbt metadata we define separately and then mix to each object
+      // common sbt metadata is added to each object
       val header = """
         package generated.metadata
 
@@ -81,6 +81,8 @@ object SbtStatikaPlugin extends Plugin {
         , seqToStr(privateResolvers map (_.toString))
         )
 
+      // NOTE: this was aimed to fix the metadata generation for case classes, but we can't use 
+      //       them anyway, so may be better to remove this.
       def cleanName(n: String) = 
         if (n.endsWith("()")) {
           val nn = n.stripSuffix("()")
@@ -165,7 +167,7 @@ object SbtStatikaPlugin extends Plugin {
 
 
     // general settings
-    , statikaVersion := "0.15.0"
+    , statikaVersion := "0.16.0-SNAPSHOT"
 
     , scalaVersion := "2.10.2"
     , scalacOptions ++= Seq(
@@ -182,7 +184,7 @@ object SbtStatikaPlugin extends Plugin {
     , libraryDependencies <++= statikaVersion { sv =>
         Seq (
           "ohnosequences" %% "statika" % sv
-        , "org.scalatest" %% "scalatest" % "1.9.1" % "test"
+        , "org.scalatest" %% "scalatest" % "1.9.2" % "test"
         )
       }
 
