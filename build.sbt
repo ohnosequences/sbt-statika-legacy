@@ -42,10 +42,6 @@ publishTo <<= (isSnapshot, s3credentials) {
 resolvers ++= Seq ( 
   "Era7 maven releases"  at "http://releases.era7.com.s3.amazonaws.com"
 // , "Era7 maven snapshots" at "http://snapshots.era7.com.s3.amazonaws.com"   
-// , Resolver.url(
-//     "sbt-plugin-releases",
-//     new URL("http://scalasbt.artifactoryonline.com/scalasbt/sbt-plugin-releases/")
-//   )(Resolver.ivyStylePatterns)
 )
 
 // NOTE: instead of addSbtPlugin, we need to use sbtPluginExtra, to set the right sbt and scala versions explicitly (otherwise they are mixed up)
@@ -56,7 +52,3 @@ libraryDependencies <++= (sbtVersion in sbtPlugin, scalaBinaryVersion) { (sbtV, 
                      (if (sbtV == "0.13") "0.10.0" else "0.9.0"), sbtV, scalaV)
   )
 }
-// instead of usual:
-//    addSbtPlugin("ohnosequences" % "sbt-s3-resolver" % "0.6.0")
-//    addSbtPlugin("com.github.gseitz" % "sbt-release" % "0.7.1")
-//    addSbtPlugin("com.typesafe.sbt" % "sbt-start-script" % "0.8.0")

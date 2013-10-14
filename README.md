@@ -9,7 +9,7 @@ Add the following dependency to `project/plugins.sbt` file in your sbt project
 ```scala
 resolvers += "Era7 maven releases" at "http://releases.era7.com.s3.amazonaws.com"
 
-addSbtPlugin("ohnosequences" % "sbt-statika" % "0.9.0")
+addSbtPlugin("ohnosequences" % "sbt-statika" % "0.10.0")
 ```
 
 #### Settings
