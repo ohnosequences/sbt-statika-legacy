@@ -169,7 +169,7 @@ object SbtStatikaPlugin extends Plugin {
     // general settings
     , statikaVersion := "0.16.0-SNAPSHOT"
 
-    , scalaVersion := "2.10.2"
+    , scalaVersion := "2.10.3"
     , scalacOptions ++= Seq(
         "-feature"
       , "-language:higherKinds"
@@ -187,6 +187,8 @@ object SbtStatikaPlugin extends Plugin {
         , "org.scalatest" %% "scalatest" % "1.9.2" % "test"
         )
       }
+    // 2.10.x are compatible and we want to use the latest for everything:
+    , dependencyOverrides += "org.scala-lang" % "scala-library" % "2.10.3"
 
     // this doesn't allow any conflicts in dependencies:
     , conflictManager := ConflictManager.strict
