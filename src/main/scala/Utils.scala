@@ -4,6 +4,7 @@ object Utils {
 
   import sbt._
   import Keys._
+  import SbtS3Resolver._
 
   // just some local aliases
   val mvn = Resolver.mavenStylePatterns
@@ -34,6 +35,12 @@ object Utils {
     // case SshRepository(name: String, connection: SshConnection, patterns: Patterns, publishPermissions: Option[String]) => 
     // case SftpRepository(name: String, connection: SshConnection, patterns: Patterns) => 
     case _ => None
+  }
+
+  // TODO: move it to the sbt-s3-resolver
+  def publicS3toSbtResolver(r: S3Resolver): Resolver = {
+    if(r.patterns == mvn) r.name at r.url
+    else Resolver.url(r.name, url(toHttp(r.url)))(r.patterns)
   }
 
 }

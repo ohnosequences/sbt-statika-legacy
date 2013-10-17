@@ -15,23 +15,19 @@ import Utils._
 
 object SbtStatikaPlugin extends sbt.Plugin {
 
-  object SbtStatikaKeys {
+  lazy val metadataObject = settingKey[String]("Name of the generated metadata object")
+  lazy val isPrivate = settingKey[Boolean]("If true, publish to private S3 bucket, else to public")
+  lazy val statikaVersion = settingKey[String]("Statika library version")
+  lazy val awsStatikaVersion = settingKey[String]("AWS-Statika library version")
 
-    lazy val metadataObject = settingKey[String]("Name of the generated metadata object")
-    lazy val isPrivate = settingKey[Boolean]("If true, publish to private S3 bucket, else to public")
-    lazy val statikaVersion = settingKey[String]("Statika library version")
-
-    // AWS-specific keys:
-    lazy val publicResolvers = settingKey[Seq[Resolver]]("Public S3 resolvers for the bundle dependencies")
-    lazy val privateResolvers = settingKey[Seq[S3Resolver]]("Private S3 resolvers for the bundle dependencies")
-    lazy val bucketSuffix = settingKey[String]("Amazon S3 bucket suffix for resolvers")
-    lazy val publishBucketSuffix = settingKey[String]("Amazon S3 bucket suffix for publish-to resolver")
-    lazy val publishResolver = settingKey[S3Resolver]("S3Resolver which will be used in publishTo")
-  }
+  // AWS-specific keys:
+  lazy val publicResolvers = settingKey[Seq[Resolver]]("Public S3 resolvers for the bundle dependencies")
+  lazy val privateResolvers = settingKey[Seq[S3Resolver]]("Private S3 resolvers for the bundle dependencies")
+  lazy val bucketSuffix = settingKey[String]("Amazon S3 bucket suffix for resolvers")
+  lazy val publishBucketSuffix = settingKey[String]("Amazon S3 bucket suffix for publish-to resolver")
+  lazy val publishResolver = settingKey[S3Resolver]("S3Resolver which will be used in publishTo")
 
   //////////////////////////////////////////////////////////////////////////////
-
-  import SbtStatikaKeys._
 
   // here we add default set of setting to the project
   override def projectSettings = 
@@ -106,49 +102,63 @@ object SbtStatikaPlugin extends sbt.Plugin {
         )
 
     , statikaVersion := "0.17.0-SNAPSHOT"
+    , awsStatikaVersion := ""
 
     // dependencies
-    , libraryDependencies ++= Seq (
+    , libraryDependencies ++= { Seq (
           "ohnosequences" %% "statika" % statikaVersion.value
         , "org.scalatest" %% "scalatest" % "1.9.2" % "test"
-        )
+        ) ++ { // if awsStatikaVersion is empty (by default), no dependency:
+        if (awsStatikaVersion.value.isEmpty) Seq() else
+          Seq("ohnosequences" %% "aws-statika" % awsStatikaVersion.value) 
+        }
+      }
 
     // metadata generation
-    , metadataObject := name.value //TODO: normalize name
+    , metadataObject := name.value.split("""\W""").map(_.capitalize).mkString
     , sourceGenerators in Compile += task[Seq[File]] {
+        // if we are not using AWS stuff, we don't need metadata
+        if (awsStatikaVersion.value.isEmpty) Seq()
+        else {
+          // helps to serialize Strings correctly:
           def seqToStr(rs: Seq[String]) = 
             if  (rs.isEmpty) "Seq()"  
             else rs.mkString("Seq(\"", "\", \"", "\")")
 
-          // common sbt metadata is added to each object
+          // adding publishing resolver to the right list
+          val pubResolvers = resolvers.value ++ {
+            if(isPrivate.value) Seq() else Seq(publicS3toSbtResolver(publishResolver.value))
+          }
+          val privResolvers = privateResolvers.value ++ {
+            if(isPrivate.value) Seq(publishResolver.value) else Seq()
+          }
+
           val text = """
             |package generated.metadata
             |
-            |import ohnosequences.statika._
+            |import ohnosequences.statika.aws._
             |
             |object $project$ extends SbtMetadata { 
             |  val organization     = "$organization$"
             |  val artifact         = "$artifact$"
             |  val version          = "$version$"
-            |  val statikaVersion   = "statikaVersion"
+            |  val statikaVersion   = "$statikaVersion$"
             |  val resolvers        = $resolvers$
             |  val privateResolvers = $privateResolvers$
             |}""".stripMargin.
               replace("$project$", metadataObject.value).
-              replace("$org$", organization.value).
+              replace("$organization$", organization.value).
               replace("$artifact$", name.value.toLowerCase).
               replace("$version$", version.value).
               replace("$statikaVersion$", statikaVersion.value).
-              replace("$resolvers$", seqToStr(
-                        (resolvers.value map resolverToString flatten) :+ // normal resolvers
-                        publishResolver.value.toString)                   // publishing resolver
-                     ).
-              replace("$privateResolvers$", seqToStr(privateResolvers.value map (_.toString)))
+              replace("$resolvers$", seqToStr(pubResolvers map resolverToString flatten)).
+              replace("$privateResolvers$", seqToStr(privResolvers map (_.toString)))
 
           val file = (sourceManaged in Compile).value / "metadata.scala" 
           IO.write(file, text)
           Seq(file)
         }
+      }
 
 
     // sbt-release plugin
