@@ -125,9 +125,14 @@ object SbtStatikaPlugin extends sbt.Plugin {
             if  (rs.isEmpty) "Seq()"  
             else rs.mkString("Seq(\"", "\", \"", "\")")
 
+          // TODO: move it to the sbt-s3-resolver
+          def toPublic(r: S3Resolver): Resolver = {
+            if(publishMavenStyle.value) r.name at r.url
+            else Resolver.url(r.name, url(toHttp(r.url)))(r.patterns)
+          }
           // adding publishing resolver to the right list
           val pubResolvers = resolvers.value ++ {
-            if(isPrivate.value) Seq() else Seq(publicS3toSbtResolver(publishResolver.value))
+            if(isPrivate.value) Seq() else Seq(toPublic(publishResolver.value))
           }
           val privResolvers = privateResolvers.value ++ {
             if(isPrivate.value) Seq(publishResolver.value) else Seq()

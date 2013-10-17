@@ -37,10 +37,4 @@ object Utils {
     case _ => None
   }
 
-  // TODO: move it to the sbt-s3-resolver
-  def publicS3toSbtResolver(r: S3Resolver): Resolver = {
-    if(r.patterns == mvn) r.name at r.url
-    else Resolver.url(r.name, url(toHttp(r.url)))(r.patterns)
-  }
-
 }
