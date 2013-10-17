@@ -129,6 +129,8 @@ object SbtStatikaPlugin extends Plugin {
 
     , bucketSuffix <<= organization {"statika."+_+".com"}
 
+    // TODO: don't forget to include the publishing resolver to one of the lists
+
     , publicResolvers <<= bucketSuffix { suffix => Seq(
           Resolver.url("Statika public ivy releases", url(toHttp("s3://releases."+suffix)))(ivy)
         , Resolver.url("Statika public ivy snapshots", url(toHttp("s3://snapshots."+suffix)))(ivy)
@@ -166,10 +168,13 @@ object SbtStatikaPlugin extends Plugin {
       }
 
 
-    // general settings
-    , statikaVersion := "0.16.0"
+    // this doesn't allow any conflicts in dependencies:
+    , conflictManager := ConflictManager.strict
 
     , scalaVersion := "2.10.3"
+    // 2.10.x are compatible and we want to use the latest _for everything_:
+    , dependencyOverrides += "org.scala-lang" % "scala-library" % "2.10.3"
+
     , scalacOptions ++= Seq(
         "-feature"
       , "-language:higherKinds"
@@ -179,6 +184,7 @@ object SbtStatikaPlugin extends Plugin {
       , "-unchecked"
       )
 
+    , statikaVersion := "0.17.0-SNAPSHOT"
 
     // dependencies
     , libraryDependencies <++= statikaVersion { sv =>
@@ -187,11 +193,6 @@ object SbtStatikaPlugin extends Plugin {
         , "org.scalatest" %% "scalatest" % "1.9.2" % "test"
         )
       }
-    // 2.10.x are compatible and we want to use the latest for everything:
-    , dependencyOverrides += "org.scala-lang" % "scala-library" % "2.10.3"
-
-    // this doesn't allow any conflicts in dependencies:
-    , conflictManager := ConflictManager.strict
 
     // metadata generation
     , bundleObjects := Seq()
