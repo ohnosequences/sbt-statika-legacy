@@ -147,7 +147,6 @@ object SbtStatikaPlugin extends sbt.Plugin {
             |  val organization     = "$organization$"
             |  val artifact         = "$artifact$"
             |  val version          = "$version$"
-            |  val statikaVersion   = "$statikaVersion$"
             |  val resolvers        = $resolvers$
             |  val privateResolvers = $privateResolvers$
             |}""".stripMargin.
@@ -155,7 +154,6 @@ object SbtStatikaPlugin extends sbt.Plugin {
               replace("$organization$", organization.value).
               replace("$artifact$", name.value.toLowerCase).
               replace("$version$", version.value).
-              replace("$statikaVersion$", statikaVersion.value).
               replace("$resolvers$", seqToStr(pubResolvers map resolverToString flatten)).
               replace("$privateResolvers$", seqToStr(privResolvers map (_.toString)))
 

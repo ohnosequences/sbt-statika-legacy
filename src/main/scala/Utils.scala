@@ -4,7 +4,6 @@ object Utils {
 
   import sbt._
   import Keys._
-  import SbtS3Resolver._
 
   // just some local aliases
   val mvn = Resolver.mavenStylePatterns
