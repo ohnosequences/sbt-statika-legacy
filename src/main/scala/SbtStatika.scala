@@ -73,7 +73,7 @@ object SbtStatikaPlugin extends sbt.Plugin {
         , "-unchecked"
         )
 
-    , statikaVersion := "0.17.0-SNAPSHOT"
+    , statikaVersion := "0.17.0"
     , awsStatikaVersion := ""
 
     // dependencies
