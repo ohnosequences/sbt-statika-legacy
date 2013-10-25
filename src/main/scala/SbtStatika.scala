@@ -1,31 +1,21 @@
-// package ohnosequences.statika.sbt
+package ohnosequences.sbt.statika
 
 import sbt._
 import Keys._
 
 import com.typesafe.sbt.SbtStartScript._
 
-import sbtrelease._
-import ReleaseStateTransformations._
-import ReleasePlugin._
-import ReleaseKeys._
-
-import SbtS3Resolver._
-import Utils._
+import ohnosequences.sbt.SbtS3Resolver._
+import ohnosequences.sbt.Era7SbtRelease._
+import ohnosequences.sbt.statika.Utils._
 
 object SbtStatikaPlugin extends sbt.Plugin {
 
   lazy val metadataObject = settingKey[String]("Name of the generated metadata object")
-  lazy val isPrivate = settingKey[Boolean]("If true, publish to private S3 bucket, else to public")
   lazy val statikaVersion = settingKey[String]("Statika library version")
   lazy val awsStatikaVersion = settingKey[String]("AWS-Statika library version")
-
-  // AWS-specific keys:
   lazy val publicResolvers = settingKey[Seq[Resolver]]("Public S3 resolvers for the bundle dependencies")
   lazy val privateResolvers = settingKey[Seq[S3Resolver]]("Private S3 resolvers for the bundle dependencies")
-  lazy val bucketSuffix = settingKey[String]("Amazon S3 bucket suffix for resolvers")
-  lazy val publishBucketSuffix = settingKey[String]("Amazon S3 bucket suffix for publish-to resolver")
-  lazy val publishResolver = settingKey[S3Resolver]("S3Resolver which will be used in publishTo")
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -33,7 +23,7 @@ object SbtStatikaPlugin extends sbt.Plugin {
   override def projectSettings = 
     // we need to set here the type explicitly, because of deprecation warning for `Setting` type
     (startScriptForClassesSettings: Seq[sbt.Def.Setting[_]]) ++ 
-    (releaseSettings: Seq[sbt.Def.Setting[_]]) ++ 
+    (Era7.allSettings: Seq[sbt.Def.Setting[_]]) ++ 
     statikaSettings
 
   lazy val statikaSettings = Seq(
@@ -42,9 +32,6 @@ object SbtStatikaPlugin extends sbt.Plugin {
       resolvers ++= Seq ( 
         "Era7 public maven releases"  at toHttp("s3://releases.era7.com")
       , "Era7 public maven snapshots" at toHttp("s3://snapshots.era7.com")
-      // ivy
-      , Resolver.url("Era7 public ivy releases", url(toHttp("s3://releases.era7.com")))(ivy)
-      , Resolver.url("Era7 public ivy snapshots", url(toHttp("s3://snapshots.era7.com")))(ivy)
       ) 
 
     , bucketSuffix := {"statika." + organization.value + ".com"}
@@ -61,29 +48,17 @@ object SbtStatikaPlugin extends sbt.Plugin {
           )
       }
 
-    , resolvers ++= publicResolvers.value
-
     // adding privateResolvers to normal ones, if we have credentials
-    , resolvers ++= {
-        privateResolvers.value map { r => s3credentials.value map r.toSbtResolver } flatten
-      }
-
+    , resolvers ++= 
+          publicResolvers.value ++
+        { privateResolvers.value map { r => s3credentials.value map r.toSbtResolver } flatten }
 
     // publishing (ivy-style by default)
-    , isPrivate := false
     , publishMavenStyle := false
     , publishBucketSuffix := bucketSuffix.value
-    , publishResolver := {
-        val privacy = if (isPrivate.value) "private." else ""
-        val prefix = if (isSnapshot.value) "snapshots" else "releases"
-        S3Resolver( 
-          "Statika "+privacy+prefix+" S3 publishing bucket"
-        ,    "s3://"+privacy+prefix+"."+publishBucketSuffix.value
-        , if(publishMavenStyle.value) mvn else ivy
-        )
-      }
-    , publishTo := { s3credentials.value map publishResolver.value.toSbtResolver }
-
+    // disable publishing sources and docs
+    , publishArtifact in (Compile, packageSrc) := false
+    , publishArtifact in (Compile, packageDoc) := false
 
     // this doesn't allow any conflicts in dependencies:
     , conflictManager := ConflictManager.strict
@@ -101,7 +76,7 @@ object SbtStatikaPlugin extends sbt.Plugin {
         , "-unchecked"
         )
 
-    , statikaVersion := "0.17.0-SNAPSHOT"
+    , statikaVersion := "0.17.0"
     , awsStatikaVersion := ""
 
     // dependencies
@@ -132,10 +107,10 @@ object SbtStatikaPlugin extends sbt.Plugin {
           }
           // adding publishing resolver to the right list
           val pubResolvers = resolvers.value ++ {
-            if(isPrivate.value) Seq() else Seq(toPublic(publishResolver.value))
+            if(isPrivate.value) Seq() else Seq(toPublic(publishS3Resolver.value))
           }
           val privResolvers = privateResolvers.value ++ {
-            if(isPrivate.value) Seq(publishResolver.value) else Seq()
+            if(isPrivate.value) Seq(publishS3Resolver.value) else Seq()
           }
 
           val text = """
@@ -161,22 +136,6 @@ object SbtStatikaPlugin extends sbt.Plugin {
           IO.write(file, text)
           Seq(file)
         }
-      }
-
-
-    // sbt-release plugin
-    , releaseProcess <<= thisProjectRef apply { ref =>
-        Seq[ReleaseStep](
-          checkSnapshotDependencies
-        , inquireVersions
-        , runTest
-        , setReleaseVersion
-        , commitReleaseVersion
-        , tagRelease
-        , publishArtifacts
-        , setNextVersion
-        , pushChanges
-        )
       }
 
     )
