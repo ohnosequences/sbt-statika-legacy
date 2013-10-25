@@ -56,6 +56,9 @@ object SbtStatikaPlugin extends sbt.Plugin {
     // publishing (ivy-style by default)
     , publishMavenStyle := false
     , publishBucketSuffix := bucketSuffix.value
+    // disable publishing sources and docs
+    , publishArtifact in (Compile, packageSrc) := false
+    , publishArtifact in (Compile, packageDoc) := false
 
     // this doesn't allow any conflicts in dependencies:
     , conflictManager := ConflictManager.strict
