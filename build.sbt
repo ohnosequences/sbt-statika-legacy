@@ -1,18 +1,21 @@
-import sbtrelease._
-import sbt._
-import Defaults._
+import ohnosequences.sbt._
 
-releaseSettings
+Era7.allSettings
 
 
 sbtPlugin := true
 
 name := "sbt-statika"
 
-organization := "ohnosequences"
-
 description := "Default sbt project settings for statika bundles"
 
+homepage := Some(url("https://github.com/ohnosequences/sbt-statika"))
+
+organization := "ohnosequences"
+
+organizationHomepage := Some(url("http://ohnosequences.com"))
+
+licenses := Seq("AGPLv3" -> url("http://www.gnu.org/licenses/agpl-3.0.txt"))
 
 scalaVersion := "2.10.3"
 
@@ -22,26 +25,12 @@ scalacOptions ++= Seq(
 , "-language:postfixOps"
 )
 
+bucketSuffix := "era7.com"
 
-publishMavenStyle := true
-
-publishTo <<= (isSnapshot, s3credentials) { 
-                (snapshot,   credentials) => 
-  val prefix = if (snapshot) "snapshots" else "releases"
-  credentials map S3Resolver(
-      "Era7 "+prefix+" S3 publishing bucket"
-    , "s3://"+prefix+".era7.com"
-    ).toSbtResolver
-}
-
-resolvers ++= Seq ( 
-  "Era7 maven releases"  at "http://releases.era7.com.s3.amazonaws.com"
-, "Era7 maven snapshots" at "http://snapshots.era7.com.s3.amazonaws.com"   
-)
-
+// plugins which will be inherrited by anybody who uses this plugin:
 addSbtPlugin("ohnosequences" % "sbt-s3-resolver" % "0.7.0")
 
-addSbtPlugin("ohnosequences" % "era7-sbt-release" % "0.1.0-SNAPSHOT")
+addSbtPlugin("ohnosequences" % "era7-sbt-release" % "0.1.0")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-start-script" % "0.10.0")
 
