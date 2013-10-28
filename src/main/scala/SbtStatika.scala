@@ -24,11 +24,11 @@ object SbtStatikaPlugin extends sbt.Plugin {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  override def projectSettings = statikaSettings
+  override def projectSettings: Seq[Setting[_]] = statikaSettings
 
-  lazy val statikaSettings = 
-    (startScriptForClassesSettings: Seq[sbt.Def.Setting[_]]) ++ 
-    (Era7.allSettings: Seq[sbt.Def.Setting[_]]) ++ Seq(
+  lazy val statikaSettings: Seq[Setting[_]] = 
+    (startScriptForClassesSettings: Seq[Setting[_]]) ++ 
+    (Era7.allSettings: Seq[Setting[_]]) ++ Seq(
 
     // resolvers needed for statika dependency
       resolvers ++= Seq ( 
@@ -87,20 +87,13 @@ object SbtStatikaPlugin extends sbt.Plugin {
       )
     )
 
-  lazy val distributionSettings = 
-    (assemblySettings: Seq[sbt.Def.Setting[_]]) ++ Seq(
+  lazy val distributionSettings: Seq[Setting[_]] = 
+    (assemblySettings: Seq[Setting[_]]) ++ Seq[Setting[_]](
 
       awsStatikaVersion := "0.4.0"
     , libraryDependencies ++= Seq(
         "ohnosequences" %% "aws-statika" % awsStatikaVersion.value
       )
-
-    // publishing also a fat artifact:
-    , artifact in (Compile, assembly) ~= { art =>
-        art.copy(`classifier` = Some("fat"))
-      }
-    , addArtifact(artifact in (Compile, assembly), assembly)
-    , test in assembly := {}
 
     // metadata generation
     , metadataObject := name.value.split("""\W""").map(_.capitalize).mkString
@@ -147,6 +140,11 @@ object SbtStatikaPlugin extends sbt.Plugin {
         Seq(file)
       }
 
-    )
+    // publishing also a fat artifact:
+    , artifact in (Compile, assembly) ~= { art =>
+        art.copy(`classifier` = Some("fat"))
+      }
+    , test in assembly := {}
+    ) ++ addArtifact(artifact in (Compile, assembly), assembly)
 
 }
