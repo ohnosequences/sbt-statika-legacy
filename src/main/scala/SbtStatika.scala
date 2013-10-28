@@ -84,16 +84,15 @@ object SbtStatikaPlugin extends sbt.Plugin {
     , libraryDependencies ++= Seq (
         "ohnosequences" %% "statika" % statikaVersion.value
       , "org.scalatest" %% "scalatest" % "1.9.2" % "test"
-      )
+      ) ++ { if (awsStatikaVersion.value.isEmpty) Seq() else
+              Seq("ohnosequences" %% "aws-statika" % awsStatikaVersion.value)
+      }
     )
 
   lazy val distributionSettings: Seq[Setting[_]] = 
     (assemblySettings: Seq[Setting[_]]) ++ Seq[Setting[_]](
 
       awsStatikaVersion := "0.4.0"
-    , libraryDependencies ++= Seq(
-        "ohnosequences" %% "aws-statika" % awsStatikaVersion.value
-      )
 
     // metadata generation
     , metadataObject := name.value.split("""\W""").map(_.capitalize).mkString
