@@ -1,13 +1,9 @@
-// package ohnosequences.statika.sbt
+package ohnosequences.sbt.statika
 
 object Utils {
 
   import sbt._
   import Keys._
-
-  // just some local aliases
-  val mvn = Resolver.mavenStylePatterns
-  val ivy = Resolver.ivyStylePatterns
 
   def seqToString(s: Seq[String]): String = 
     if (s.isEmpty) "Seq()"
