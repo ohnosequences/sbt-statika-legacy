@@ -1,227 +1,150 @@
-// package ohnosequences.statika.sbt
+package ohnosequences.sbt
 
 import sbt._
 import Keys._
 
 import com.typesafe.sbt.SbtStartScript._
 
-import sbtrelease._
-import ReleaseStateTransformations._
-import ReleasePlugin._
-import ReleaseKeys._
+import ohnosequences.sbt.SbtS3Resolver._
+import ohnosequences.sbt.Era7SbtRelease._
+import ohnosequences.sbt.statika.Utils._
 
-import SbtS3Resolver._
-import Utils._
+import sbtassembly._
+import sbtassembly.Plugin._
+import AssemblyKeys._
 
-object SbtStatikaPlugin extends Plugin {
+object SbtStatikaPlugin extends sbt.Plugin {
 
-  lazy val bundleObjects = SettingKey[Seq[String]]("bundle-objects",
-    "Fully qualified names of the defined in code bundle objects")
+  lazy val statikaVersion = settingKey[String]("Statika library version")
+  lazy val publicResolvers = settingKey[Seq[Resolver]]("Public S3 resolvers for the bundle dependencies")
+  lazy val privateResolvers = settingKey[Seq[S3Resolver]]("Private S3 resolvers for the bundle dependencies")
 
-  lazy val isPrivate = SettingKey[Boolean]("is-private", 
-    "If true, publish to private S3 bucket, else to public")
-
-  lazy val statikaVersion = SettingKey[String]("statika-version",
-    "Statika library version")
-
-
-  // AWS-specific keys:
-
-  lazy val publicResolvers = SettingKey[Seq[Resolver]]("public-resolvers",
-    "Public S3 resolvers for the bundle dependencies")
-
-  lazy val privateResolvers = SettingKey[Seq[S3Resolver]]("private-resolvers",
-    "Private S3 resolvers for the bundle dependencies")
-
-  lazy val bucketSuffix = SettingKey[String]("bucket-suffix",
-    "Amazon S3 bucket suffix for resolvers")
-
-  lazy val publishBucketSuffix = SettingKey[String]("publish-bucket-suffix",
-    "Amazon S3 bucket suffix for publish-to resolver")
+  lazy val awsStatikaVersion = settingKey[String]("AWS-Statika library version")
+  lazy val metadataObject = settingKey[String]("Name of the generated metadata object")
 
   //////////////////////////////////////////////////////////////////////////////
 
-  // generating metadata sourcecode
-  private def metadataFile(
-      sourceManaged: File
-    , bundleObjects: Seq[String]
-    , name: String
-    , organization: String
-    , version: String
-    , statikaVersion: String
-    , resolvers: Seq[Resolver]
-    , publicResolvers: Seq[Resolver]
-    , privateResolvers: Seq[S3Resolver]
-    ): Seq[File] = { 
+  override def projectSettings: Seq[Setting[_]] = statikaSettings
 
-      def seqToStr(rs: Seq[String]) = 
-        if (rs.isEmpty) "Seq()"  
-        else rs.mkString("Seq(\"", "\", \"", "\")")
-
-      // common sbt metadata is added to each object
-      val header = """
-        package generated.metadata
-
-        import ohnosequences.statika._
-      """
-
-      val commonPart = """
-          val organization = "%s"
-          val artifact = "%s"
-          val version = "%s"
-          val statikaVersion = "%s"
-          val resolvers = %s
-          val privateResolvers = %s
-        """ format (
-          organization
-        , name.toLowerCase
-        , version
-        , statikaVersion
-        , seqToStr(((resolvers ++ publicResolvers) map resolverToString) flatten)
-        , seqToStr(privateResolvers map (_.toString))
-        )
-
-      // NOTE: this was aimed to fix the metadata generation for case classes, but we can't use 
-      //       them anyway, so may be better to remove this.
-      def cleanName(n: String) = 
-        if (n.endsWith("()")) {
-          val nn = n.stripSuffix("()")
-          (nn.split('.').last, nn, nn)
-        } else 
-          (n.split('.').last, n+".type", n)
-
-      // the name of metadata object is the last part of bundle object name
-      val metaObjects = bundleObjects map { obj => 
-        val name = cleanName(obj)
-        """
-        object %s extends MetadataOf[%s] {
-          val name = "%s"
-          %s
-        }
-        """ format (name._1, name._2, name._3, commonPart)
-      }
-
-      // if there are no objects, don't generate anything
-      if (metaObjects.isEmpty) Seq()
-      else { 
-        // otherwise join generated text and write to a file
-        val file = sourceManaged / "metadata.scala" 
-        IO.write(file, header + metaObjects.mkString)
-        Seq(file)
-      }
-    }
-
-
-  // here we add default set of setting to the project
-  override def projectSettings = 
-    startScriptForClassesSettings ++
-    releaseSettings ++
-    Seq(
+  lazy val statikaSettings: Seq[Setting[_]] = 
+    (startScriptForClassesSettings: Seq[Setting[_]]) ++ 
+    (Era7.allSettings: Seq[Setting[_]]) ++ Seq(
 
     // resolvers needed for statika dependency
       resolvers ++= Seq ( 
         "Era7 public maven releases"  at toHttp("s3://releases.era7.com")
       , "Era7 public maven snapshots" at toHttp("s3://snapshots.era7.com")
-      // ivy
-      , Resolver.url("Era7 public ivy releases", url(toHttp("s3://releases.era7.com")))(ivy)
-      , Resolver.url("Era7 public ivy snapshots", url(toHttp("s3://snapshots.era7.com")))(ivy)
       ) 
 
-    , bucketSuffix <<= organization {"statika."+_+".com"}
+    , bucketSuffix := {"statika." + organization.value + ".com"}
 
-    , publicResolvers <<= bucketSuffix { suffix => Seq(
-          Resolver.url("Statika public ivy releases", url(toHttp("s3://releases."+suffix)))(ivy)
-        , Resolver.url("Statika public ivy snapshots", url(toHttp("s3://snapshots."+suffix)))(ivy)
+    , publicResolvers := Seq(
+          Resolver.url("Statika public ivy releases", url(toHttp("s3://releases."+bucketSuffix.value)))(ivy)
+        , Resolver.url("Statika public ivy snapshots", url(toHttp("s3://snapshots."+bucketSuffix.value)))(ivy)
         )
-      }
 
-    , privateResolvers <<= (isPrivate, bucketSuffix) { (priv, suffix) =>
-        if (!priv) Seq() else Seq(
-            S3Resolver("Statika private ivy releases",  "s3://private.releases."+suffix, ivy)
-          , S3Resolver("Statika private ivy snapshots", "s3://private.snapshots."+suffix, ivy)
+    , privateResolvers := {
+        if (!isPrivate.value) Seq() else Seq(
+            S3Resolver("Statika private ivy releases",  "s3://private.releases."+bucketSuffix.value, ivy)
+          , S3Resolver("Statika private ivy snapshots", "s3://private.snapshots."+bucketSuffix.value, ivy)
           )
       }
 
-    , resolvers <++= publicResolvers
-
     // adding privateResolvers to normal ones, if we have credentials
-    , resolvers <++= (s3credentials, privateResolvers) { (cs, rs) => 
-        rs map { r => cs map r.toSbtResolver } flatten
-      }
-
+    , resolvers ++= 
+          publicResolvers.value ++
+        { privateResolvers.value map { r => s3credentials.value map r.toSbtResolver } flatten }
 
     // publishing (ivy-style by default)
-    , isPrivate := false
     , publishMavenStyle := false
-    , publishBucketSuffix <<= bucketSuffix
-    , publishTo <<= (isSnapshot, s3credentials, isPrivate, publishMavenStyle, publishBucketSuffix) { 
-                      (snapshot,   credentials,   priv,    mvnStyle,          suffix) => 
-        val privacy = if (priv) "private." else ""
-        val prefix = if (snapshot) "snapshots" else "releases"
-        credentials map S3Resolver( 
-            "Statika "+privacy+prefix+" S3 publishing bucket"
-          , "s3://"+privacy+prefix+"."+suffix
-          , if(mvnStyle) mvn else ivy
-          ).toSbtResolver
-      }
-
-
-    // general settings
-    , statikaVersion := "0.16.0"
-
-    , scalaVersion := "2.10.3"
-    , scalacOptions ++= Seq(
-        "-feature"
-      , "-language:higherKinds"
-      , "-language:implicitConversions"
-      , "-language:postfixOps"
-      , "-deprecation"
-      , "-unchecked"
-      )
-
-
-    // dependencies
-    , libraryDependencies <++= statikaVersion { sv =>
-        Seq (
-          "ohnosequences" %% "statika" % sv
-        , "org.scalatest" %% "scalatest" % "1.9.2" % "test"
-        )
-      }
-    // 2.10.x are compatible and we want to use the latest for everything:
-    , dependencyOverrides += "org.scala-lang" % "scala-library" % "2.10.3"
+    , publishBucketSuffix := bucketSuffix.value
+    // disable publishing sources and docs
+    , publishArtifact in (Compile, packageSrc) := false
+    , publishArtifact in (Compile, packageDoc) := false
 
     // this doesn't allow any conflicts in dependencies:
     , conflictManager := ConflictManager.strict
 
-    // metadata generation
-    , bundleObjects := Seq()
-    , sourceGenerators in Compile <+= (
-          sourceManaged in Compile
-        , bundleObjects
-        , name
-        , organization
-        , version
-        , statikaVersion
-        , resolvers
-        , publicResolvers
-        , privateResolvers
-        ) map metadataFile
+    , scalaVersion := "2.10.3"
+    // 2.10.x are compatible and we want to use the latest _for everything_:
+    , dependencyOverrides += "org.scala-lang" % "scala-library" % "2.10.3"
 
-
-    // sbt-release plugin
-    , releaseProcess <<= thisProjectRef apply { ref =>
-        Seq[ReleaseStep](
-          checkSnapshotDependencies
-        , inquireVersions
-        , runTest
-        , setReleaseVersion
-        , commitReleaseVersion
-        , tagRelease
-        , publishArtifacts
-        , setNextVersion
-        , pushChanges
+    , scalacOptions ++= Seq(
+          "-feature"
+        , "-language:higherKinds"
+        , "-language:implicitConversions"
+        , "-language:postfixOps"
+        , "-deprecation"
+        , "-unchecked"
         )
+
+    , statikaVersion := "0.17.0"
+
+    // dependencies
+    , libraryDependencies ++= Seq (
+        "ohnosequences" %% "statika" % statikaVersion.value
+      , "org.scalatest" %% "scalatest" % "1.9.2" % "test"
+      ) ++ { if (awsStatikaVersion.value.isEmpty) Seq() else
+              Seq("ohnosequences" %% "aws-statika" % awsStatikaVersion.value)
+      }
+    )
+
+  lazy val distributionSettings: Seq[Setting[_]] = 
+    (assemblySettings: Seq[Setting[_]]) ++ Seq[Setting[_]](
+
+      awsStatikaVersion := "0.4.0"
+
+    // metadata generation
+    , metadataObject := name.value.split("""\W""").map(_.capitalize).mkString
+    , sourceGenerators in Compile += task[Seq[File]] {
+        // helps to serialize Strings correctly:
+        def seqToStr(rs: Seq[String]) = 
+          if  (rs.isEmpty) "Seq()"  
+          else rs.mkString("Seq(\"", "\", \"", "\")")
+
+        // TODO: move it to the sbt-s3-resolver
+        def toPublic(r: S3Resolver): Resolver = {
+          if(publishMavenStyle.value) r.name at r.url
+          else Resolver.url(r.name, url(toHttp(r.url)))(r.patterns)
+        }
+        // adding publishing resolver to the right list
+        val pubResolvers = resolvers.value ++ {
+          if(isPrivate.value) Seq() else Seq(toPublic(publishS3Resolver.value))
+        }
+        val privResolvers = privateResolvers.value ++ {
+          if(isPrivate.value) Seq(publishS3Resolver.value) else Seq()
+        }
+
+        val text = """
+          |package generated.metadata
+          |
+          |import ohnosequences.statika.aws._
+          |
+          |class $project$(
+          |  val organization     : String = "$organization$"
+          |, val artifact         : String = "$artifact$"
+          |, val version          : String = "$version$"
+          |, val resolvers        : Seq[String] = $resolvers$
+          |, val privateResolvers : Seq[String] = $privateResolvers$
+          |) extends SbtMetadata
+          |""".stripMargin.
+            replace("$project$", metadataObject.value).
+            replace("$organization$", organization.value).
+            replace("$artifact$", name.value.toLowerCase).
+            replace("$version$", version.value).
+            replace("$resolvers$", seqToStr(pubResolvers map resolverToString flatten)).
+            replace("$privateResolvers$", seqToStr(privResolvers map (_.toString)))
+
+        val file = (sourceManaged in Compile).value / "metadata.scala" 
+        IO.write(file, text)
+        Seq(file)
       }
 
-    )
+    // publishing also a fat artifact:
+    , artifact in (Compile, assembly) ~= { art =>
+        art.copy(`classifier` = Some("fat"))
+      }
+    , test in assembly := {}
+    ) ++ addArtifact(artifact in (Compile, assembly), assembly)
+
 }
