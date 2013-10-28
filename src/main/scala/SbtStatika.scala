@@ -121,13 +121,14 @@ object SbtStatikaPlugin extends sbt.Plugin {
           |
           |import ohnosequences.statika.aws._
           |
-          |object $project$ extends SbtMetadata { 
-          |  val organization     = "$organization$"
-          |  val artifact         = "$artifact$"
-          |  val version          = "$version$"
-          |  val resolvers        = $resolvers$
-          |  val privateResolvers = $privateResolvers$
-          |}""".stripMargin.
+          |class $project$(
+          |  val organization     : String = "$organization$"
+          |, val artifact         : String = "$artifact$"
+          |, val version          : String = "$version$"
+          |, val resolvers        : Seq[String] = $resolvers$
+          |, val privateResolvers : Seq[String] = $privateResolvers$
+          |) extends SbtMetadata
+          |""".stripMargin.
             replace("$project$", metadataObject.value).
             replace("$organization$", organization.value).
             replace("$artifact$", name.value.toLowerCase).
