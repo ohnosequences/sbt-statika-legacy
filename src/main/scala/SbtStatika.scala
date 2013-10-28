@@ -79,6 +79,7 @@ object SbtStatikaPlugin extends sbt.Plugin {
         )
 
     , statikaVersion := "0.17.0"
+    , awsStatikaVersion := ""
 
     // dependencies
     , libraryDependencies ++= Seq (
