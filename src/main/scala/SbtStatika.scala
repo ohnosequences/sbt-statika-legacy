@@ -93,7 +93,7 @@ object SbtStatikaPlugin extends sbt.Plugin {
   lazy val distributionSettings: Seq[Setting[_]] = 
     (assemblySettings: Seq[Setting[_]]) ++ Seq[Setting[_]](
 
-      awsStatikaVersion := "0.5.0-SNAPSHOT"
+      awsStatikaVersion := "0.5.0"
 
     // metadata generation
     , metadataObject := name.value.split("""\W""").map(_.capitalize).mkString
