@@ -93,7 +93,7 @@ object SbtStatikaPlugin extends sbt.Plugin {
   lazy val distributionSettings: Seq[Setting[_]] = 
     (assemblySettings: Seq[Setting[_]]) ++ Seq[Setting[_]](
 
-      awsStatikaVersion := "0.4.0"
+      awsStatikaVersion := "0.5.0-SNAPSHOT"
 
     // metadata generation
     , metadataObject := name.value.split("""\W""").map(_.capitalize).mkString
@@ -116,25 +116,48 @@ object SbtStatikaPlugin extends sbt.Plugin {
           if(isPrivate.value) Seq(publishS3Resolver.value) else Seq()
         }
 
+        // Patterns:
+        // mvn: "[organisation]/[module]_[scalaVersion]/[revision]/[artifact]-[revision]-[classifier].[ext]"
+        // ivy: "[organisation]/[module]_[scalaVersion]/[revision]/[type]s/[artifact]-[classifier].[ext]"
+        val fatUrl = {
+          val isMvn = publishMavenStyle.value
+          val scalaV = "_"+scalaBinaryVersion.value 
+          val module = moduleName.value + scalaV
+          val artifact = 
+            (if (isMvn) "" else "jars/") + 
+            module +
+            (if (isMvn) "-"+version.value else "") + 
+            "-fat.jar"
+
+          Seq( publishS3Resolver.value.url
+             , organization.value
+             , module
+             , version.value
+             , artifact
+             ).mkString("/")
+        }
+
         val text = """
           |package generated.metadata
           |
           |import ohnosequences.statika.aws._
           |
-          |class $project$(
+          |class $metadataObject$(
           |  val organization     : String = "$organization$"
           |, val artifact         : String = "$artifact$"
           |, val version          : String = "$version$"
           |, val resolvers        : Seq[String] = $resolvers$
           |, val privateResolvers : Seq[String] = $privateResolvers$
-          |) extends SbtMetadata
+          |, val artifactUrl      : String = "$fatUrl$"
+          |) extends SbtMetadata with FatJarMetadata
           |""".stripMargin.
-            replace("$project$", metadataObject.value).
+            replace("$metadataObject$", metadataObject.value).
             replace("$organization$", organization.value).
             replace("$artifact$", name.value.toLowerCase).
             replace("$version$", version.value).
             replace("$resolvers$", seqToStr(pubResolvers map resolverToString flatten)).
-            replace("$privateResolvers$", seqToStr(privResolvers map (_.toString)))
+            replace("$privateResolvers$", seqToStr(privResolvers map (_.toString))).
+            replace("$fatUrl$", fatUrl)
 
         val file = (sourceManaged in Compile).value / "metadata.scala" 
         IO.write(file, text)
