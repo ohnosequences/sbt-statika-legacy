@@ -6,12 +6,8 @@ import Keys._
 import com.typesafe.sbt.SbtStartScript._
 
 import ohnosequences.sbt.SbtS3Resolver._
-import ohnosequences.sbt.Era7SbtRelease._
+import ohnosequences.sbt.Era7SettingsPlugin._
 import ohnosequences.sbt.statika.Utils._
-
-import sbtassembly._
-import sbtassembly.Plugin._
-import AssemblyKeys._
 
 object SbtStatikaPlugin extends sbt.Plugin {
 
@@ -28,7 +24,7 @@ object SbtStatikaPlugin extends sbt.Plugin {
 
   lazy val statikaSettings: Seq[Setting[_]] = 
     (startScriptForClassesSettings: Seq[Setting[_]]) ++ 
-    (Era7.allSettings: Seq[Setting[_]]) ++ Seq(
+    (Era7.scalaProject: Seq[Setting[_]]) ++ Seq(
 
     // resolvers needed for statika dependency
       resolvers ++= Seq ( 
@@ -57,26 +53,8 @@ object SbtStatikaPlugin extends sbt.Plugin {
 
     // publishing (ivy-style by default)
     , publishMavenStyle := false
-    , publishBucketSuffix := bucketSuffix.value
-    // disable publishing sources and docs
+    // disable publishing sources
     , publishArtifact in (Compile, packageSrc) := false
-    , publishArtifact in (Compile, packageDoc) := false
-
-    // this doesn't allow any conflicts in dependencies:
-    , conflictManager := ConflictManager.strict
-
-    , scalaVersion := "2.10.3"
-    // 2.10.x are compatible and we want to use the latest _for everything_:
-    , dependencyOverrides += "org.scala-lang" % "scala-library" % "2.10.3"
-
-    , scalacOptions ++= Seq(
-          "-feature"
-        , "-language:higherKinds"
-        , "-language:implicitConversions"
-        , "-language:postfixOps"
-        , "-deprecation"
-        , "-unchecked"
-        )
 
     , statikaVersion := "0.17.0"
     , awsStatikaVersion := ""
@@ -84,15 +62,13 @@ object SbtStatikaPlugin extends sbt.Plugin {
     // dependencies
     , libraryDependencies ++= Seq (
         "ohnosequences" %% "statika" % statikaVersion.value
-      , "org.scalatest" %% "scalatest" % "1.9.2" % "test"
+      , "org.scalatest" %% "scalatest" % "2.0.+" % "test"
       ) ++ { if (awsStatikaVersion.value.isEmpty) Seq() else
               Seq("ohnosequences" %% "aws-statika" % awsStatikaVersion.value)
       }
     )
 
-  lazy val distributionSettings: Seq[Setting[_]] = 
-    (assemblySettings: Seq[Setting[_]]) ++ Seq[Setting[_]](
-
+  lazy val distributionSettings: Seq[Setting[_]] = Seq(
       awsStatikaVersion := "0.5.0"
 
     // metadata generation
@@ -163,12 +139,6 @@ object SbtStatikaPlugin extends sbt.Plugin {
         IO.write(file, text)
         Seq(file)
       }
-
-    // publishing also a fat artifact:
-    , artifact in (Compile, assembly) ~= { art =>
-        art.copy(`classifier` = Some("fat"))
-      }
-    , test in assembly := {}
-    ) ++ addArtifact(artifact in (Compile, assembly), assembly)
+    ) ++ Era7.fatArtifactSettings
 
 }
