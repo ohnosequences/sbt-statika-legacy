@@ -6,7 +6,7 @@ import Keys._
 import com.typesafe.sbt.SbtStartScript._
 
 import ohnosequences.sbt.SbtS3Resolver._
-import ohnosequences.sbt.Era7SettingsPlugin._
+import ohnosequences.sbt.NiceSettingsPlugin._
 import ohnosequences.sbt.statika.Utils._
 
 object SbtStatikaPlugin extends sbt.Plugin {
@@ -24,7 +24,7 @@ object SbtStatikaPlugin extends sbt.Plugin {
 
   lazy val statikaSettings: Seq[Setting[_]] = 
     (startScriptForClassesSettings: Seq[Setting[_]]) ++ 
-    (Era7.scalaProject: Seq[Setting[_]]) ++ Seq(
+    (Nice.scalaProject: Seq[Setting[_]]) ++ Seq(
 
     // resolvers needed for statika dependency
       resolvers ++= Seq ( 
@@ -139,6 +139,6 @@ object SbtStatikaPlugin extends sbt.Plugin {
         IO.write(file, text)
         Seq(file)
       }
-    ) ++ Era7.fatArtifactSettings
+    ) ++ Nice.fatArtifactSettings
 
 }
