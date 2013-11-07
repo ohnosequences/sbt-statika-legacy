@@ -24,15 +24,29 @@ Here is the list of sbt settings defined by this plugin (see code for defaults):
  `privateResolvers`  | Seq[S3Resolver] | Private S3 resolvers for the bundle dependencies 
  `metadataObject`    | String          | Name of the generated metadata object            
 
-See also settings from [era7-sbt-release](https://github.com/ohnosequences/era7-sbt-release/) plugin.
+See also settings from [nice-sbt-settings](https://github.com/ohnosequences/nice-sbt-settings/) plugin.
+
+If you create a bundle, beginning of your `info.sbt` should look like:
+
+```scala
+Statika.bundleProject
+
+name := "..."
+
+organization := "..."
+
+// other custom settings
+```
+
+If you create a distribution, use `Statika.distributionProject` as the first line instead.
 
 
 ### Dependencies
 
-This plugin adds to your project dependencies on
+This plugin adds to your project following dependencies:
 
-* [era7-sbt-release](https://github.com/ohnosequences/era7-sbt-release) plugin for standardized release process
+* [nice-sbt-settings](https://github.com/ohnosequences/nice-sbt-settings) plugin for standardized release process
 * [sbt-start-script](https://github.com/sbt/sbt-start-script) plugin for convenient running
-* [scalatest](https://github.com/scalatest/scalatest) library
+* [scalatest](https://github.com/scalatest/scalatest) library (only for `test` configuration)
 * [statika](https://github.com/ohnosequences/statika) library
-* [aws-statika](https://github.com/ohnosequences/aws-statika) library (if `awsStatikaVersion` is set)
+* [aws-statika](https://github.com/ohnosequences/aws-statika) library (for distributions)
