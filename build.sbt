@@ -17,3 +17,5 @@ addSbtPlugin("ohnosequences" % "sbt-s3-resolver" % "0.7.0")
 addSbtPlugin("ohnosequences" % "nice-sbt-settings" % "0.3.1")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-start-script" % "0.10.0")
+
+generateDocs := {}

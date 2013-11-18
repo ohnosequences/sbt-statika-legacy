@@ -55,8 +55,8 @@ object SbtStatikaPlugin extends sbt.Plugin {
       // disable publishing sources
       , publishArtifact in (Compile, packageSrc) := false
 
-      , statikaVersion := "1.0.0-RC3"
-      , awsStatikaVersion := "1.0.0-RC3"
+      , statikaVersion := "1.0.0"
+      , awsStatikaVersion := "1.0.0"
 
       // dependencies
       , libraryDependencies ++= Seq (
